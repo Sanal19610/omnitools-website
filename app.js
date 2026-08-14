@@ -489,94 +489,130 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Use YouTube IFrame Player API to detect exact video info from user's browser
-    // This is the ONLY reliable approach because:
-    // 1. Server/datacenter IPs are blocked by YouTube
-    // 2. Browser fetch to YouTube APIs is blocked by CORS
-    // 3. YouTube's own IFrame Player runs in the user's browser and has full access
+    // getAvailableQualityLevels() only returns data AFTER the video starts buffering/playing
+    // So we autoplay muted and check quality in onStateChange
     async function fetchRealVideoDuration(videoId) {
         return new Promise((resolve) => {
             const timeout = setTimeout(() => {
                 cleanup();
                 resolve(null);
-            }, 8000);
+            }, 10000);
 
             let player = null;
             let container = null;
+            let resolved = false;
 
             function cleanup() {
                 clearTimeout(timeout);
                 try {
-                    if (player && player.destroy) player.destroy();
+                    if (player && player.pauseVideo) player.pauseVideo();
                 } catch (e) {}
+                // Delay destroy to avoid errors
+                setTimeout(() => {
+                    try {
+                        if (player && player.destroy) player.destroy();
+                    } catch (e) {}
+                    try {
+                        if (container && container.parentNode) container.parentNode.removeChild(container);
+                    } catch (e) {}
+                }, 500);
+            }
+
+            const qualityMap = {
+                'highres': 4320,
+                'hd2160': 2160,
+                'hd1440': 1440,
+                'hd1080': 1080,
+                'hd720': 720,
+                'large': 480,
+                'medium': 360,
+                'small': 240,
+                'tiny': 144
+            };
+
+            function extractAndResolve(eventTarget) {
+                if (resolved) return;
                 try {
-                    if (container && container.parentNode) container.parentNode.removeChild(container);
-                } catch (e) {}
+                    const qualityLevels = eventTarget.getAvailableQualityLevels();
+                    // Only resolve if we got actual quality data
+                    if (!qualityLevels || qualityLevels.length === 0) return;
+
+                    resolved = true;
+                    const duration = eventTarget.getDuration();
+                    const videoData = eventTarget.getVideoData();
+
+                    let maxHeight = 0;
+                    qualityLevels.forEach(q => {
+                        const h = qualityMap[q] || 0;
+                        if (h > maxHeight) maxHeight = h;
+                    });
+
+                    console.log('YT Player detected qualities:', qualityLevels, 'maxHeight:', maxHeight);
+
+                    cleanup();
+                    resolve({
+                        seconds: duration > 0 ? Math.round(duration) : 0,
+                        formatted: formatDuration(Math.round(duration)),
+                        title: videoData?.title || undefined,
+                        author: videoData?.author || undefined,
+                        maxHeight: maxHeight,
+                        qualityLevels: qualityLevels
+                    });
+                } catch (e) {
+                    console.log('YT Player quality extraction error:', e);
+                }
             }
 
             function initPlayer() {
                 // Create hidden container for the player
                 container = document.createElement('div');
-                container.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden;';
+                container.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:320px;height:180px;overflow:hidden;pointer-events:none;';
                 const playerDiv = document.createElement('div');
                 playerDiv.id = 'yt-quality-detector-' + Date.now();
                 container.appendChild(playerDiv);
                 document.body.appendChild(container);
 
                 player = new YT.Player(playerDiv.id, {
-                    height: '1',
-                    width: '1',
+                    height: '180',
+                    width: '320',
                     videoId: videoId,
                     playerVars: {
-                        autoplay: 0,
+                        autoplay: 1,        // Must autoplay so video starts buffering
                         controls: 0,
-                        mute: 1,
-                        modestbranding: 1
+                        mute: 1,            // Muted so user doesn't hear anything
+                        modestbranding: 1,
+                        playsinline: 1,
+                        fs: 0,
+                        rel: 0
                     },
                     events: {
                         onReady: function(event) {
-                            try {
-                                const duration = event.target.getDuration();
-                                const qualityLevels = event.target.getAvailableQualityLevels();
-                                const videoData = event.target.getVideoData();
-
-                                // Map quality level names to pixel heights
-                                const qualityMap = {
-                                    'highres': 4320,
-                                    'hd2160': 2160,
-                                    'hd1440': 1440,
-                                    'hd1080': 1080,
-                                    'hd720': 720,
-                                    'large': 480,
-                                    'medium': 360,
-                                    'small': 240,
-                                    'tiny': 144
-                                };
-
-                                let maxHeight = 0;
-                                (qualityLevels || []).forEach(q => {
-                                    const h = qualityMap[q] || 0;
-                                    if (h > maxHeight) maxHeight = h;
-                                });
-
-                                cleanup();
-                                resolve({
-                                    seconds: duration > 0 ? Math.round(duration) : 0,
-                                    formatted: formatDuration(Math.round(duration)),
-                                    title: videoData?.title || undefined,
-                                    author: videoData?.author || undefined,
-                                    maxHeight: maxHeight,
-                                    qualityLevels: qualityLevels || []
-                                });
-                            } catch (e) {
-                                console.log('YT Player quality detection error:', e);
-                                cleanup();
-                                resolve(null);
+                            // Force mute and play
+                            event.target.mute();
+                            event.target.playVideo();
+                            // Try extracting immediately (sometimes works on ready)
+                            setTimeout(() => extractAndResolve(event.target), 500);
+                        },
+                        onStateChange: function(event) {
+                            // States: BUFFERING=3, PLAYING=1
+                            // Quality levels are available once buffering/playing starts
+                            if (event.data === 1 || event.data === 3) {
+                                extractAndResolve(event.target);
+                                // Also try after a short delay for slower connections
+                                setTimeout(() => extractAndResolve(event.target), 1000);
                             }
+                        },
+                        onPlaybackQualityChange: function(event) {
+                            // Also try when quality changes
+                            extractAndResolve(event.target);
                         },
                         onError: function(event) {
                             console.log('YT Player error code:', event.data);
-                            cleanup();
-                            resolve(null);
+                            if (!resolved) {
+                                resolved = true;
+                                cleanup();
+                                resolve(null);
+                            }
                         }
                     }
                 });
@@ -586,7 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.YT && window.YT.Player) {
                 initPlayer();
             } else {
-                // Load the API script
                 const existingScript = document.getElementById('yt-iframe-api-script');
                 if (!existingScript) {
                     const tag = document.createElement('script');
@@ -594,13 +629,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     tag.src = 'https://www.youtube.com/iframe_api';
                     document.head.appendChild(tag);
                 }
-                // Wait for API to be ready
                 const prevCallback = window.onYouTubeIframeAPIReady;
                 window.onYouTubeIframeAPIReady = function() {
                     if (prevCallback) prevCallback();
                     initPlayer();
                 };
-                // If API was already loaded but callback missed
                 if (window.YT && window.YT.Player) {
                     initPlayer();
                 }
