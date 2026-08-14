@@ -488,111 +488,124 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${mins}:${formattedSecs}`;
     }
 
+    // Use YouTube IFrame Player API to detect exact video info from user's browser
+    // This is the ONLY reliable approach because:
+    // 1. Server/datacenter IPs are blocked by YouTube
+    // 2. Browser fetch to YouTube APIs is blocked by CORS
+    // 3. YouTube's own IFrame Player runs in the user's browser and has full access
     async function fetchRealVideoDuration(videoId) {
-        // Direct browser client fetch to YouTube Innertube player endpoint
-        // This works from the user's real browser IP (not blocked like datacenter IPs)
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    videoId,
-                    context: {
-                        client: {
-                            clientName: 'WEB',
-                            clientVersion: '2.20240801.00.00',
-                            hl: 'en',
-                            gl: 'US'
+        return new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                cleanup();
+                resolve(null);
+            }, 8000);
+
+            let player = null;
+            let container = null;
+
+            function cleanup() {
+                clearTimeout(timeout);
+                try {
+                    if (player && player.destroy) player.destroy();
+                } catch (e) {}
+                try {
+                    if (container && container.parentNode) container.parentNode.removeChild(container);
+                } catch (e) {}
+            }
+
+            function initPlayer() {
+                // Create hidden container for the player
+                container = document.createElement('div');
+                container.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden;';
+                const playerDiv = document.createElement('div');
+                playerDiv.id = 'yt-quality-detector-' + Date.now();
+                container.appendChild(playerDiv);
+                document.body.appendChild(container);
+
+                player = new YT.Player(playerDiv.id, {
+                    height: '1',
+                    width: '1',
+                    videoId: videoId,
+                    playerVars: {
+                        autoplay: 0,
+                        controls: 0,
+                        mute: 1,
+                        modestbranding: 1
+                    },
+                    events: {
+                        onReady: function(event) {
+                            try {
+                                const duration = event.target.getDuration();
+                                const qualityLevels = event.target.getAvailableQualityLevels();
+                                const videoData = event.target.getVideoData();
+
+                                // Map quality level names to pixel heights
+                                const qualityMap = {
+                                    'highres': 4320,
+                                    'hd2160': 2160,
+                                    'hd1440': 1440,
+                                    'hd1080': 1080,
+                                    'hd720': 720,
+                                    'large': 480,
+                                    'medium': 360,
+                                    'small': 240,
+                                    'tiny': 144
+                                };
+
+                                let maxHeight = 0;
+                                (qualityLevels || []).forEach(q => {
+                                    const h = qualityMap[q] || 0;
+                                    if (h > maxHeight) maxHeight = h;
+                                });
+
+                                cleanup();
+                                resolve({
+                                    seconds: duration > 0 ? Math.round(duration) : 0,
+                                    formatted: formatDuration(Math.round(duration)),
+                                    title: videoData?.title || undefined,
+                                    author: videoData?.author || undefined,
+                                    maxHeight: maxHeight,
+                                    qualityLevels: qualityLevels || []
+                                });
+                            } catch (e) {
+                                console.log('YT Player quality detection error:', e);
+                                cleanup();
+                                resolve(null);
+                            }
+                        },
+                        onError: function(event) {
+                            console.log('YT Player error code:', event.data);
+                            cleanup();
+                            resolve(null);
                         }
                     }
-                }),
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            if (res.ok) {
-                const data = await res.json();
-                const details = data.videoDetails || {};
-                const streaming = data.streamingData || {};
-                const secs = details.lengthSeconds;
-
-                // Extract max published resolution from adaptive formats
-                let maxHeight = 0;
-                const adaptiveFormats = streaming.adaptiveFormats || [];
-                const formats = streaming.formats || [];
-                const allFormats = [...adaptiveFormats, ...formats];
-                allFormats.forEach(f => {
-                    if (f.height && f.height > maxHeight) maxHeight = f.height;
                 });
+            }
 
-                if (secs && !isNaN(secs) && parseInt(secs, 10) > 0) {
-                    const parsed = parseInt(secs, 10);
-                    return {
-                        seconds: parsed,
-                        formatted: formatDuration(parsed),
-                        title: details.title,
-                        author: details.author,
-                        maxHeight: maxHeight || 0
-                    };
+            // Load YouTube IFrame API if not already loaded
+            if (window.YT && window.YT.Player) {
+                initPlayer();
+            } else {
+                // Load the API script
+                const existingScript = document.getElementById('yt-iframe-api-script');
+                if (!existingScript) {
+                    const tag = document.createElement('script');
+                    tag.id = 'yt-iframe-api-script';
+                    tag.src = 'https://www.youtube.com/iframe_api';
+                    document.head.appendChild(tag);
                 }
-
-                // Even if no duration, return what we have
-                if (details.title || maxHeight > 0) {
-                    return {
-                        seconds: 0,
-                        formatted: '0:00',
-                        title: details.title,
-                        author: details.author,
-                        maxHeight: maxHeight || 0
-                    };
+                // Wait for API to be ready
+                const prevCallback = window.onYouTubeIframeAPIReady;
+                window.onYouTubeIframeAPIReady = function() {
+                    if (prevCallback) prevCallback();
+                    initPlayer();
+                };
+                // If API was already loaded but callback missed
+                if (window.YT && window.YT.Player) {
+                    initPlayer();
                 }
             }
-        } catch (e) {
-            console.log('Direct browser Innertube check:', e);
-        }
-
-        // Fallback CORS proxies
-        const proxies = [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`,
-            `https://corsproxy.io/?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`
-        ];
-        for (const p of proxies) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2500);
-                const res = await fetch(p, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (res.ok) {
-                    const html = await res.text();
-                    const match = html.match(/"lengthSeconds":"(\d+)"/);
-                    const titleMatch = html.match(/"title":"([^"]*)"/);
-                    const authorMatch = html.match(/"author":"([^"]*)"/);
-                    // Extract max quality from HTML stream data
-                    let maxHeight = 0;
-                    const qualityMatches = [...html.matchAll(/"qualityLabel":"([^"]+)"/g)].map(m => m[1]);
-                    qualityMatches.forEach(q => {
-                        const hMatch = q.match(/(\d+)p/);
-                        if (hMatch) {
-                            const h = parseInt(hMatch[1], 10);
-                            if (h > maxHeight) maxHeight = h;
-                        }
-                    });
-                    if ((match && match[1]) || maxHeight > 0) {
-                        const parsed = match ? parseInt(match[1], 10) : 0;
-                        return {
-                            seconds: parsed > 0 ? parsed : 0,
-                            formatted: formatDuration(parsed),
-                            title: titleMatch ? titleMatch[1] : undefined,
-                            author: authorMatch ? authorMatch[1] : undefined,
-                            maxHeight: maxHeight || 0
-                        };
-                    }
-                }
-            } catch (e) {}
-        }
-
-        return null;
+        });
     }
 
     if (analyzeYtBtn) {
