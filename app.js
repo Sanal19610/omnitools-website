@@ -756,6 +756,12 @@ async function analyzeYouTubeLink() {
             if (defaultOpt) defaultOpt.selected = true;
         }
 
+        // Update mirror direct links
+        const mirror1 = document.getElementById('ytMirror1');
+        const mirror2 = document.getElementById('ytMirror2');
+        if (mirror1) mirror1.href = `https://yt1s.com.co/en/youtube-to-mp4?q=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`;
+        if (mirror2) mirror2.href = `https://en.y2mate.is/download-youtube/${videoId}`;
+
         showToast('Video loaded successfully! ✅');
     } catch (err) {
         ytLoader.classList.add('hidden');
@@ -929,22 +935,30 @@ async function analyzeYouTubeLink() {
         }
     }
 
-    // Strategy 3: Redirect to ssyoutube download service
+    // Strategy 3: Open fast, working high-quality downloader mirror (yt1s / y2mate)
     if (ytProgressWrap) {
-        ytProgressBar.style.width = '50%';
-        ytProgressPercent.textContent = '50%';
-        ytProgressStatus.textContent = 'Opening download page...';
+        ytProgressBar.style.width = '80%';
+        ytProgressPercent.textContent = '80%';
+        ytProgressStatus.textContent = 'Opening high-speed download mirror...';
     }
 
-    const downloadPageUrl = `https://ssyoutube.com/watch?v=${videoId}`;
+    // Use fast, non-blocked direct downloader mirrors
+    const downloadPageUrl = `https://yt1s.com.co/en/youtube-to-mp4?q=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`;
     window.open(downloadPageUrl, '_blank');
 
     setTimeout(() => {
-        if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
-        startDownloadBtn.disabled = false;
-        startDownloadBtn.innerHTML = '⬇️ Download File Now';
-        showToast('Download page opened in new tab! Select your quality there. 📥', 'info');
-    }, 2000);
+        if (ytProgressWrap) {
+            ytProgressBar.style.width = '100%';
+            ytProgressPercent.textContent = '100%';
+            ytProgressStatus.textContent = 'Download ready in new tab!';
+        }
+        setTimeout(() => {
+            if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
+            startDownloadBtn.disabled = false;
+            startDownloadBtn.innerHTML = '⬇️ Download File Now';
+            showToast('Download tab opened! Click your desired quality to save. 📥', 'info');
+        }, 1500);
+    }, 1000);
 });
 }
 
