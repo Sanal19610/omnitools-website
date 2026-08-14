@@ -490,9 +490,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchRealVideoDuration(videoId) {
         // Direct browser client fetch to YouTube Innertube player endpoint
+        // This works from the user's real browser IP (not blocked like datacenter IPs)
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
             const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -512,14 +513,38 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(timeoutId);
             if (res.ok) {
                 const data = await res.json();
-                const secs = data.videoDetails?.lengthSeconds;
+                const details = data.videoDetails || {};
+                const streaming = data.streamingData || {};
+                const secs = details.lengthSeconds;
+
+                // Extract max published resolution from adaptive formats
+                let maxHeight = 0;
+                const adaptiveFormats = streaming.adaptiveFormats || [];
+                const formats = streaming.formats || [];
+                const allFormats = [...adaptiveFormats, ...formats];
+                allFormats.forEach(f => {
+                    if (f.height && f.height > maxHeight) maxHeight = f.height;
+                });
+
                 if (secs && !isNaN(secs) && parseInt(secs, 10) > 0) {
                     const parsed = parseInt(secs, 10);
                     return {
                         seconds: parsed,
                         formatted: formatDuration(parsed),
-                        title: data.videoDetails.title,
-                        author: data.videoDetails.author
+                        title: details.title,
+                        author: details.author,
+                        maxHeight: maxHeight || 0
+                    };
+                }
+
+                // Even if no duration, return what we have
+                if (details.title || maxHeight > 0) {
+                    return {
+                        seconds: 0,
+                        formatted: '0:00',
+                        title: details.title,
+                        author: details.author,
+                        maxHeight: maxHeight || 0
                     };
                 }
             }
@@ -541,9 +566,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.ok) {
                     const html = await res.text();
                     const match = html.match(/"lengthSeconds":"(\d+)"/);
-                    if (match && match[1]) {
-                        const parsed = parseInt(match[1], 10);
-                        if (parsed > 0) return { seconds: parsed, formatted: formatDuration(parsed) };
+                    const titleMatch = html.match(/"title":"([^"]*)"/);
+                    const authorMatch = html.match(/"author":"([^"]*)"/);
+                    // Extract max quality from HTML stream data
+                    let maxHeight = 0;
+                    const qualityMatches = [...html.matchAll(/"qualityLabel":"([^"]+)"/g)].map(m => m[1]);
+                    qualityMatches.forEach(q => {
+                        const hMatch = q.match(/(\d+)p/);
+                        if (hMatch) {
+                            const h = parseInt(hMatch[1], 10);
+                            if (h > maxHeight) maxHeight = h;
+                        }
+                    });
+                    if ((match && match[1]) || maxHeight > 0) {
+                        const parsed = match ? parseInt(match[1], 10) : 0;
+                        return {
+                            seconds: parsed > 0 ? parsed : 0,
+                            formatted: formatDuration(parsed),
+                            title: titleMatch ? titleMatch[1] : undefined,
+                            author: authorMatch ? authorMatch[1] : undefined,
+                            maxHeight: maxHeight || 0
+                        };
                     }
                 }
             } catch (e) {}
@@ -596,13 +639,20 @@ async function analyzeYouTubeLink() {
 
         ytResultBox.classList.remove('hidden');
 
-        // Extract metadata
-        const title = data?.title || realInfo?.title || `YouTube Video (${videoId})`;
-        const author = data?.author || realInfo?.author || 'YouTube Creator';
+        // Extract metadata - prioritize browser data (realInfo) since Supabase datacenter gets blocked by YouTube
+        const dataTitle = (data?.title && data.title !== 'YouTube' && data.title.length > 3) ? data.title : null;
+        const realTitle = (realInfo?.title && realInfo.title !== 'YouTube' && realInfo.title.length > 3) ? realInfo.title : null;
+        const title = realTitle || dataTitle || `YouTube Video (${videoId})`;
+
+        const dataAuthor = (data?.author && data.author !== 'YouTube Creator') ? data.author : null;
+        const realAuthor = (realInfo?.author) ? realInfo.author : null;
+        const author = realAuthor || dataAuthor || 'YouTube Creator';
+
         const thumbnail = data?.thumbnail || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-        const totalSeconds = (data?.lengthSeconds && data.lengthSeconds > 0)
-            ? data.lengthSeconds
-            : ((realInfo?.seconds && realInfo.seconds > 0) ? realInfo.seconds : 2182);
+
+        const totalSeconds = (realInfo?.seconds && realInfo.seconds > 0)
+            ? realInfo.seconds
+            : ((data?.lengthSeconds && data.lengthSeconds > 0) ? data.lengthSeconds : 0);
 
         ytVideoThumb.src = thumbnail;
         ytVideoThumb.onerror = () => { ytVideoThumb.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`; };
@@ -611,41 +661,50 @@ async function analyzeYouTubeLink() {
 
         const durationEl = document.getElementById('ytVideoDuration');
         if (durationEl) {
-            durationEl.textContent = formatDuration(totalSeconds);
+            durationEl.textContent = totalSeconds > 0 ? formatDuration(totalSeconds) : '';
         }
 
         // Remember this URL for downloading
         startDownloadBtn.dataset.videoUrl = url;
 
-        // Build quality options matching the creator's exact published resolutions
+        // Determine max published resolution from browser detection or API
+        const browserMaxHeight = (realInfo?.maxHeight && realInfo.maxHeight > 0) ? realInfo.maxHeight : 0;
+        const apiMaxHeight = (data?.maxPublishedQuality) ? parseInt(data.maxPublishedQuality) : 0;
+        const maxHeight = browserMaxHeight || apiMaxHeight || 1080; // fallback to 1080p
+
+        // All available MP4 quality tiers
+        const allTiers = [
+            { formatId: '2160p', quality: '4K Ultra HD (2160p)', ext: 'mp4', height: 2160, ratePerSec: 5500000 / 8 },
+            { formatId: '1440p', quality: '2K Quad HD (1440p)', ext: 'mp4', height: 1440, ratePerSec: 3300000 / 8 },
+            { formatId: '1080p', quality: '1080p Full HD', ext: 'mp4', height: 1080, ratePerSec: 2000000 / 8 },
+            { formatId: '720p', quality: '720p HD', ext: 'mp4', height: 720, ratePerSec: 1000000 / 8 },
+            { formatId: '480p', quality: '480p SD', ext: 'mp4', height: 480, ratePerSec: 500000 / 8 },
+            { formatId: '360p', quality: '360p Standard', ext: 'mp4', height: 360, ratePerSec: 300000 / 8 }
+        ];
+
+        // ONLY show options <= creator's max published resolution
+        let filteredTiers = allTiers.filter(t => t.height <= maxHeight);
+        if (filteredTiers.length === 0) {
+            filteredTiers = [allTiers[allTiers.length - 1]]; // fallback to 360p
+        }
+
+        // Build quality dropdown
         const qualitySelect = document.getElementById('ytQualitySelect');
         qualitySelect.innerHTML = '';
 
-        const formatsToUse = (data?.formats && data.formats.length > 0) ? data.formats : [
-            { formatId: '1080p', quality: '1080p Full HD', ext: 'mp4', ratePerSec: 2000000 / 8 },
-            { formatId: '720p', quality: '720p HD', ext: 'mp4', ratePerSec: 1000000 / 8 },
-            { formatId: '480p', quality: '480p SD', ext: 'mp4', ratePerSec: 500000 / 8 },
-            { formatId: '360p', quality: '360p Standard', ext: 'mp4', ratePerSec: 300000 / 8 }
-        ];
-
-        formatsToUse.forEach(f => {
+        filteredTiers.forEach(f => {
             const opt = document.createElement('option');
             opt.value = f.formatId;
-            opt.dataset.ext = f.ext || 'mp4';
-            let sizeMB = 0;
-            if (f.sizeBytes) {
-                sizeMB = f.sizeBytes / (1024 * 1024);
-            } else if (f.ratePerSec) {
-                sizeMB = (totalSeconds * f.ratePerSec) / (1024 * 1024);
-            }
+            opt.dataset.ext = f.ext;
+            const sizeMB = totalSeconds > 0 ? (totalSeconds * f.ratePerSec) / (1024 * 1024) : 0;
             const sizeLabel = sizeMB >= 1000
                 ? ` • ~${(sizeMB / 1024).toFixed(2)} GB`
                 : (sizeMB > 0 ? ` • ~${sizeMB.toFixed(1)} MB` : '');
-            opt.textContent = `${f.quality} (.${f.ext || 'mp4'})${sizeLabel}`;
+            opt.textContent = `${f.quality} (.${f.ext})${sizeLabel}`;
             qualitySelect.appendChild(opt);
         });
 
-        // Set default to highest available resolution or 1080p
+        // Set default to 1080p or first available option
         if (qualitySelect.options.length > 0) {
             const defaultOpt = Array.from(qualitySelect.options).find(o => o.value === '1080p') || qualitySelect.options[0];
             if (defaultOpt) defaultOpt.selected = true;
