@@ -1,0 +1,36 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Binaries & Executables
+*.exe
+*.dll
+ffmpeg.exe
+yt-dlp.exe
+
+# Temporary files & Uploads
+temp/
+uploads/
+backend/temp/
+backend/uploads/
+
+# Session and cookie secrets
+cookies.txt
+backend/cookies.txt
+*.cookie
+
+# Debugging and generated scripts
+*-player-script.js
+backend/*-player-script.js
+debug-channel.html
+backend/debug-channel.html
+
+# Environment variables
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniTools - Boost Your Productivity, Simplify Your Life</title>
+    <meta name="description" content="All-in-one content creation suite with YouTube Video Downloader, HD Thumbnail Extractor, AI Audio Generator, and powerful media utilities.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%236366f1'/><path d='M12 10h8v12h-8z' fill='%23ffffff'/></svg>">
+
+</head>
+<body class="light-mode">
+
+    <!-- Ambient Gradient Background Aura -->
+    <div class="aura-background">
+        <div class="aura-blob aura-1"></div>
+        <div class="aura-blob aura-2"></div>
+        <div class="aura-blob aura-3"></div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <header class="site-header">
+        <div class="container nav-container">
+            <a href="#" class="brand-logo" id="brandLogoBtn">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16 4C9.37258 4 4 9.37258 4 16C4 22.6274 9.37258 28 16 28C22.6274 28 28 22.6274 28 16C28 9.37258 22.6274 4 16 4Z" fill="url(#logo-grad-1)"/>
+                        <path d="M12 12C12 10.8954 12.8954 10 14 10H18C19.1046 10 20 10.8954 20 12V20C20 21.1046 19.1046 22 18 22H14C12.8954 22 12 21.1046 12 20V12Z" fill="white" fill-opacity="0.9"/>
+                        <circle cx="16" cy="16" r="3" fill="#6366F1"/>
+                        <defs>
+                            <linearGradient id="logo-grad-1" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#8B5CF6"/>
+                                <stop offset="1" stop-color="#3B82F6"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <span class="brand-name">OmniTools</span>
+            </a>
+
+            <nav class="nav-links">
+                <a href="#home" class="nav-link active">Home</a>
+                <a href="#tools-section" class="nav-link">Tools</a>
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#testimonials" class="nav-link">Testimonials</a>
+                <a href="#pricing" class="nav-link">Pricing</a>
+            </nav>
+
+            <div class="nav-actions">
+                <button class="theme-toggle-btn" id="themeToggle" title="Toggle Light/Dark Theme">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+                <button class="btn btn-ghost" id="loginBtn">Login</button>
+                <button class="btn btn-primary" id="signupBtn">Sign Up</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main>
+        <!-- Hero Section inspired by screenshot -->
+        <section class="hero-section" id="home">
+            <div class="container hero-container">
+                <div class="hero-badge hero-badge-clickable" id="heroBadgeBtn" title="Click arrow to view new latest added tools!">
+                    <span class="badge-pill">⭐ NEW</span>
+                    <span class="badge-text">Click arrow to explore new latest added tools</span>
+                    <span class="badge-arrow-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </span>
+                </div>
+
+                <h1 class="hero-title">
+                    Boost Your <span class="text-gradient">Productivity</span>,<br>
+                    Simplify Your Life
+                </h1>
+
+                <p class="hero-subtitle">
+                    We're here to simplify the intricacies of your workflow, providing a user-friendly platform that not only manages your media tools effortlessly but also enhances your overall efficiency.
+                </p>
+
+                <div class="hero-cta-group">
+                    <a href="#tools-section" class="btn btn-primary btn-lg shadow-glow">Get Started</a>
+                    <button class="btn btn-secondary btn-lg" id="previewSuiteBtn">Preview Platform</button>
+                </div>
+
+                <!-- Floating Interactive Dashboard Mockup Preview -->
+                <div class="dashboard-preview-wrapper" id="dashboardPreview">
+                    <div class="window-header">
+                        <div class="window-controls">
+                            <span class="control red"></span>
+                            <span class="control yellow"></span>
+                            <span class="control green"></span>
+                        </div>
+                        <div class="window-title">OmniTools Workspace Hub</div>
+                        <div class="window-actions">
+                            <span class="status-indicator">● Active Suite</span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-body">
+                        <!-- Left Sidebar -->
+                        <aside class="dash-sidebar">
+                            <div class="user-profile-card">
+                                <div class="avatar">
+                                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="AR Shakir">
+                                </div>
+                                <div class="user-info">
+                                    <div class="user-name">AR Shakir</div>
+                                    <div class="user-role">Sr. Visual Designer</div>
+                                </div>
+                            </div>
+
+                            <nav class="dash-nav">
+                                <div class="dash-nav-title">Menu</div>
+                                <a href="#tools-section" class="dash-nav-item active">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                    All Tools
+                                </a>
+                                <a href="#yt-downloader-tool" class="dash-nav-item tool-quick-link" data-tool="yt-downloader">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+                                    YT Downloader
+                                </a>
+                                <a href="#yt-thumbnail-tool" class="dash-nav-item tool-quick-link" data-tool="yt-thumbnail">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    Thumbnail Extractor
+                                </a>
+                                <a href="#channel-extractor-tool" class="dash-nav-item tool-quick-link" data-tool="channel-extractor">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    Channel Extractor
+                                </a>
+                                <a href="#audio-generator-tool" class="dash-nav-item tool-quick-link" data-tool="audio-generator">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                                    AI Voice Synthesizer
+                                </a>
+                                <a href="#ig-downloader-tool" class="dash-nav-item tool-quick-link" data-tool="ig-downloader">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                                    Instagram Reels
+                                </a>
+                            </nav>
+                        </aside>
+
+                        <!-- Central Main View -->
+                        <div class="dash-main">
+                            <div class="dash-header">
+                                <div>
+                                    <h2 class="dash-greeting">Hi Shakir! 👋</h2>
+                                    <p class="dash-sub">Here is your active creation workspace and quick tool launcher.</p>
+                                </div>
+                                <div class="task-progress-mini">
+                                    <span>75% tools ready</span>
+                                    <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 75%;"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- Featured Quick Launcher Cards inside mock -->
+                            <div class="featured-cards-grid">
+                                <div class="feat-card feat-card-pink launch-tool-trigger" data-tool="yt-downloader">
+                                    <div class="feat-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    </div>
+                                    <h3>YouTube Downloader</h3>
+                                    <p>Extract HD 1080p MP4 videos fast.</p>
+                                    <div class="card-action">
+                                        <span class="badge-mini">Popular</span>
+                                        <span class="btn-text">Launch Tool →</span>
+                                    </div>
+                                </div>
+
+                                <div class="feat-card feat-card-purple launch-tool-trigger" data-tool="yt-thumbnail">
+                                    <div class="feat-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                    </div>
+                                    <h3>Thumbnail Extractor</h3>
+                                    <p>Get original 4K & 1080p YT video covers.</p>
+                                    <div class="card-action">
+                                        <span class="badge-mini">HD 4K</span>
+                                        <span class="btn-text">Launch Tool →</span>
+                                    </div>
+                                </div>
+
+                                <div class="feat-card feat-card-blue launch-tool-trigger" data-tool="audio-generator">
+                                    <div class="feat-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                                    </div>
+                                    <h3>AI Voice Synthesizer</h3>
+                                    <p>Convert text to hyper-realistic voiceovers.</p>
+                                    <div class="card-action">
+                                        <span class="badge-mini">AI Power</span>
+                                        <span class="btn-text">Launch Tool →</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Quick Stats -->
+                            <div class="stats-row">
+                                <div class="stat-pill">
+                                    <span class="stat-num">114</span>
+                                    <span class="stat-lbl">Videos Converted</span>
+                                </div>
+                                <div class="stat-pill">
+                                    <span class="stat-num">24</span>
+                                    <span class="stat-lbl">Thumbnails Downloaded</span>
+                                </div>
+                                <div class="stat-pill">
+                                    <span class="stat-num">18</span>
+                                    <span class="stat-lbl">Audio Files Generated</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel inside Mock -->
+                        <aside class="dash-right">
+                            <div class="widget-box">
+                                <h3>Today's Schedule & Tools</h3>
+                                <div class="schedule-item">
+                                    <div class="sch-time">Now</div>
+                                    <div class="sch-title">YouTube Thumbnail Extraction</div>
+                                </div>
+                                <div class="schedule-item active">
+                                    <div class="sch-time">28:35</div>
+                                    <div class="sch-title">Audio Generator Voiceover</div>
+                                </div>
+                            </div>
+
+                            <div class="widget-box stats-widget">
+                                <h4>System Performance</h4>
+                                <div class="perf-metric">
+                                    <span>Processing Speed</span>
+                                    <strong>99.8%</strong>
+                                </div>
+                                <div class="perf-metric">
+                                    <span>Conversion Accuracy</span>
+                                    <strong>100%</strong>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tools Directory Section -->
+        <section class="tools-section" id="tools-section">
+            <div class="container">
+                <div class="section-header text-center">
+                    <span class="section-tag">All-In-One Toolkit</span>
+                    <h2 class="section-title">Explore Our Powerful Online Tools</h2>
+                    <p class="section-subtitle">Click on any tool to launch its interactive workspace directly in your browser.</p>
+                </div>
+
+                <!-- Tools Filter & Search Bar -->
+                <div class="tools-filter-wrapper">
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-category="all">All Tools</button>
+                        <button class="filter-tab filter-tab-latest" data-category="latest">⭐ New</button>
+                        <button class="filter-tab" data-category="video">Video & Media</button>
+                        <button class="filter-tab" data-category="audio">Audio & AI</button>
+                        <button class="filter-tab" data-category="utility">Utilities</button>
+                    </div>
+                    <div class="search-box">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="toolSearchInput" placeholder="Search tools (e.g. YouTube, Audio, QR)...">
+                    </div>
+                </div>
+
+                <!-- Tool Cards Grid -->
+                <div class="tools-grid" id="toolsGrid">
+
+                    <!-- Tool 1: YouTube Video Downloader -->
+                    <div class="tool-card" data-category="video" data-name="youtube video downloader mp4 mp3 audio 1080p hd popular">
+                        <div class="tool-card-badge badge-amber">Most Popular</div>
+                        <div class="tool-icon-wrapper tool-icon-red">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+                        </div>
+                        <h3 class="tool-title">YouTube Video Downloader</h3>
+                        <p class="tool-description">Download YouTube videos in 1080p Full HD, 720p, 480p, or extract high-bitrate MP3 audio with instant link processing.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag">1080p HD</span>
+                            <span class="meta-tag">MP4 Video</span>
+                            <span class="meta-tag">No Ads</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="yt-downloader">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 2: YouTube Thumbnail Extractor -->
+                    <div class="tool-card" data-category="video" data-name="youtube thumbnail extractor maxres 1080p hd photo image">
+                        <div class="tool-card-badge badge-purple">4K HD Support</div>
+                        <div class="tool-icon-wrapper tool-icon-purple">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </div>
+                        <h3 class="tool-title">YT Thumbnail Extractor</h3>
+                        <p class="tool-description">Extract full-resolution MaxRes HD (1080p), High Quality, and Medium thumbnails from any YouTube URL or Shorts link.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag">MaxRes HD</span>
+                            <span class="meta-tag">Instant Link</span>
+                            <span class="meta-tag">Copy URL</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="yt-thumbnail">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 2B: YouTube Title, Description & Tag Extractor -->
+                    <div class="tool-card" data-category="video" data-name="youtube title description tags keywords extractor finder seo">
+                        <div class="tool-card-badge badge-red">SEO & Tags</div>
+                        <div class="tool-icon-wrapper tool-icon-red">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                        </div>
+                        <h3 class="tool-title">YT Title, Desc & Tag Finder</h3>
+                        <p class="tool-description">Extract full video titles, descriptions, hidden SEO tags, keywords, channel metadata, and hashtags with 1-click copying.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag">Title & Desc</span>
+                            <span class="meta-tag">SEO Keywords</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="yt-metadata">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 2C: Channel Keyword & Info Extractor -->
+                    <div class="tool-card" data-category="video" data-latest="true" data-name="youtube channel keywords tags description extractor seo info subscriber new latest">
+                        <div class="tool-card-badges">
+                            <span class="tool-card-badge badge-new-star">⭐ NEW ✨</span>
+                            <span class="tool-card-badge badge-purple">Channel SEO</span>
+                        </div>
+                        <div class="tool-icon-wrapper tool-icon-purple">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        </div>
+                        <h3 class="tool-title">Channel Keyword & Info Extractor</h3>
+                        <p class="tool-description">Extract YouTube channel keywords, description, subscriber count, and SEO tags from any channel or video URL with 1-click copying.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag meta-tag-new">⭐ New Tool</span>
+                            <span class="meta-tag">Channel SEO</span>
+                            <span class="meta-tag">Keywords</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="channel-extractor">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 2D: Instagram Reel Downloader -->
+                    <div class="tool-card" data-category="video" data-latest="true" data-name="instagram reel video downloader insta reels ig mp4 mp3 audio 1080p hd new latest">
+                        <div class="tool-card-badges">
+                            <span class="tool-card-badge badge-new-star">⭐ NEW ✨</span>
+                            <span class="tool-card-badge badge-pink">IG Reels</span>
+                        </div>
+                        <div class="tool-icon-wrapper tool-icon-pink">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                        </div>
+                        <h3 class="tool-title">Instagram Reel Downloader</h3>
+                        <p class="tool-description">Download Instagram Reels, Shorts & Posts in 1080p Full HD MP4 video directly via link.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag meta-tag-new">⭐ New Tool</span>
+                            <span class="meta-tag">1080p HD</span>
+                            <span class="meta-tag meta-tag-ig-pink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>MP4 Video</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="ig-downloader">Open Tool →</button>
+                    </div>
+
+
+                    <!-- Tool 3: AI Voice & Audio Synthesizer -->
+                    <div class="tool-card" data-category="audio" data-name="ai audio generator voice text to speech tts speech">
+                        <div class="tool-card-badge badge-blue">AI Powered</div>
+                        <div class="tool-icon-wrapper tool-icon-blue">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                        </div>
+                        <h3 class="tool-title">AI Voice Synthesizer</h3>
+                        <p class="tool-description">Generate realistic voiceovers from text with customizable pitch, speed, accents, and downloadable audio tracks.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag">Natural Speech</span>
+                            <span class="meta-tag">Multi-Voice</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="audio-generator">Open Tool →</button>
+                    </div>
+
+
+                    <!-- Tool 5: Image Resizer & Filter Utility -->
+                    <div class="tool-card" data-category="utility" data-name="image resizer filter cropper utility photo">
+                        <div class="tool-card-badge badge-amber">Social Presets</div>
+                        <div class="tool-icon-wrapper tool-icon-amber">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        </div>
+                        <h3 class="tool-title">Image Studio & Resizer</h3>
+                        <p class="tool-description">Quickly adjust aspect ratio, crop for social media (YouTube, Instagram, X), apply vintage filters, and compress images.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag">Social Presets</span>
+                            <span class="meta-tag">Batch Resize</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="image-studio">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 6: Video Aspect Ratio Changer -->
+                    <div class="tool-card" data-category="utility" data-name="aspect ratio changer video resize crop pad convert">
+                        <div class="tool-card-badge badge-blue">Utility</div>
+                        <div class="tool-icon-wrapper tool-icon-blue">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6v12M16 6v12"/></svg>
+                        </div>
+                        <h3 class="tool-title">Video Aspect Ratio Changer</h3>
+                        <p class="tool-description">Upload a video from your computer and convert it to a new aspect ratio (9:16, 16:9, 1:1, 4:5) using crop or padding.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag">Crop or Pad</span>
+                            <span class="meta-tag">Multiple Ratios</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="aspect-ratio-changer">Open Tool →</button>
+                    </div>
+
+
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Showcase Section -->
+        <section class="features-section" id="features">
+            <div class="container">
+                <div class="section-header text-center">
+                    <span class="section-tag">Why Choose OmniTools</span>
+                    <h2 class="section-title">Built for Speed, Privacy & Precision</h2>
+                    <p class="section-subtitle">No watermarks, no registration required for basic tools, and 100% browser-based execution.</p>
+                </div>
+
+                <div class="features-grid">
+                    <div class="feature-box">
+                        <div class="feat-icon-box">⚡</div>
+                        <h3>Blazing Fast Processing</h3>
+                        <p>Our Client-Side Web API engine extracts thumbnails and generates voiceovers in milliseconds without slow server queues.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feat-icon-box">🔒</div>
+                        <h3>100% Privacy Focused</h3>
+                        <p>Your inputs, images, and audio generation remain in your browser memory. We never store or track your media files.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feat-icon-box">💎</div>
+                        <h3>Ultra HD Quality</h3>
+                        <p>Get original uncompressed 4K YouTube thumbnails and crystal clear 320kbps audio exports with 0 quality loss.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Testimonials Section inspired by design screenshot -->
+        <section class="testimonials-section" id="testimonials">
+            <div class="container">
+                <div class="section-header text-center">
+                    <span class="section-tag">User Reviews</span>
+                    <h2 class="section-title">Loved by Content Creators Worldwide</h2>
+                </div>
+
+                <div class="testimonials-grid">
+                    <div class="testimonial-card">
+                        <div class="stars">★★★★★</div>
+                        <p>"The YouTube Thumbnail Extractor and AI Voice Generator save me hours every single week when making video shorts!"</p>
+                        <div class="user-meta">
+                            <div class="avatar-sm">
+                                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80" alt="David K.">
+                            </div>
+                            <div>
+                                <strong>David K.</strong>
+                                <span>Tech YouTuber (250k Subs)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="testimonial-card">
+                        <div class="stars">★★★★★</div>
+                        <p>"Extremely clean design and incredibly fast. Having all these tools together in one single website is a huge productivity gain."</p>
+                        <div class="user-meta">
+                            <div class="avatar-sm">
+                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=80&q=80" alt="Sarah Jenkins">
+                            </div>
+                            <div>
+                                <strong>Sarah Jenkins</strong>
+                                <span>Digital Marketer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ACTIVE TOOL WORKSPACE MODAL / DRAWER SYSTEM -->
+    <div class="tool-modal-overlay" id="toolModalOverlay">
+        <div class="tool-modal-container">
+            <div class="tool-modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon" id="modalToolIcon"></div>
+                    <div>
+                        <h2 class="modal-tool-title" id="modalToolTitle">Tool Title</h2>
+                        <span class="modal-tool-tag" id="modalToolTag">Category</span>
+                    </div>
+                </div>
+                <button class="modal-close-btn" id="modalCloseBtn" title="Close Tool">✕</button>
+            </div>
+
+            <div class="tool-modal-content">
+
+                <!-- TOOL WORKSPACE 1: YouTube Downloader -->
+                <div class="tool-workspace" id="workspace-yt-downloader">
+                    <div class="input-hero-group">
+                        <label for="ytDownloaderUrl">Enter YouTube Video URL or Short Link:</label>
+                        <div class="input-with-button">
+                            <div class="input-clear-wrapper">
+                                <input type="text" id="ytDownloaderUrl" placeholder="Paste YouTube link here (e.g. https://www.youtube.com/watch?v=...)" value="">
+                                <button type="button" class="input-clear-btn hidden" id="clearYtDownloaderUrl" title="Clear link (1-click)">✕</button>
+                            </div>
+                            <button class="btn btn-primary" id="analyzeYtBtn">Get Video 🚀</button>
+                        </div>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div class="tool-loader hidden" id="ytLoader">
+                        <div class="spinner"></div>
+                        <p>Fetching YouTube media specs...</p>
+                    </div>
+
+                    <!-- Analyzed Result Card -->
+                    <div class="result-box hidden" id="ytResultBox">
+                        <div class="video-preview-card">
+                            <div class="thumb-preview-wrap">
+                                <img id="ytVideoThumb" src="" alt="Video Preview">
+                                <span class="video-duration-badge" id="ytVideoDuration">14:25</span>
+                            </div>
+                            <div class="video-details">
+                                <h3 id="ytVideoTitle">YouTube Video Title</h3>
+                                <p class="channel-info" id="ytChannelInfo">Channel: YouTube Creator</p>
+
+                                <div class="download-options-group">
+                                    <div class="form-group">
+                                        <label for="ytQualitySelect">Select Quality & Format:</label>
+                                        <select id="ytQualitySelect" class="form-control">
+                                            <option value="1080p">1080p Full HD (.mp4) • 45.2 MB</option>
+                                            <option value="720p">720p HD (.mp4) • 24.8 MB</option>
+                                            <option value="480p">480p SD (.mp4) • 12.1 MB</option>
+                                            <option value="mp3">320kbps Audio (.mp3) • 8.4 MB</option>
+                                        </select>
+                                    </div>
+
+                                    <button class="btn btn-primary btn-block btn-lg" id="startDownloadBtn">
+                                        ⬇️ Download File Now
+                                    </button>
+
+                                    <!-- Progress Bar -->
+                                    <div class="download-progress-wrap hidden" id="ytProgressWrap">
+                                        <div class="progress-info">
+                                            <span id="ytProgressStatus">Downloading video streams...</span>
+                                            <span id="ytProgressPercent">0%</span>
+                                        </div>
+                                        <div class="progress-bar-bg">
+                                            <div class="progress-bar-fill" id="ytProgressBar" style="width: 0%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE: Instagram Reel Downloader -->
+                <div class="tool-workspace hidden" id="workspace-ig-downloader">
+                    <div class="input-hero-group">
+                        <label for="igDownloaderUrl">Enter Instagram Reel or Post Link:</label>
+                        <div class="input-with-button">
+                            <div class="input-clear-wrapper">
+                                <input type="text" id="igDownloaderUrl" placeholder="Paste Instagram Reel link here (e.g. https://www.instagram.com/reel/...)" value="">
+                                <button type="button" class="input-clear-btn hidden" id="clearIgDownloaderUrl" title="Clear link (1-click)">✕</button>
+                            </div>
+                            <button class="btn btn-primary" id="analyzeIgBtn">Get Reel Video 🚀</button>
+                        </div>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div class="tool-loader hidden" id="igLoader">
+                        <div class="spinner"></div>
+                        <p>Fetching Instagram Reel media specs...</p>
+                    </div>
+
+                    <!-- Analyzed Result Card -->
+                    <div class="result-box hidden" id="igResultBox">
+                        <div class="video-preview-card">
+                            <div class="thumb-preview-wrap">
+                                <img id="igVideoThumb" src="" alt="Instagram Reel Preview">
+                                <span class="video-duration-badge" id="igVideoDuration">0:30</span>
+                            </div>
+                            <div class="video-details">
+                                <h3 id="igVideoTitle">Instagram Reel Title</h3>
+                                <p class="channel-info" id="igAuthorInfo">Creator: @instagram_creator</p>
+
+                                <!-- Hashtags Cloud -->
+                                <div class="ig-hashtags-cloud" id="igHashtags"></div>
+
+                                <!-- Video Details Card -->
+                                <div class="ig-details-card">
+                                    <div class="ig-detail-item">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        <span id="igUploadDate">2 months ago</span>
+                                    </div>
+                                    <div class="ig-detail-item">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                                        <span id="igLikesCount">1315 likes</span>
+                                    </div>
+                                    <div class="ig-detail-item">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        <span id="igCommentsCount">3287 comments</span>
+                                    </div>
+                                </div>
+
+                                <div class="download-options-group">
+                                    <div class="form-group">
+                                        <label for="igQualitySelect">Quality & Format:</label>
+                                        <select id="igQualitySelect" class="form-control">
+                                            <option value="1080p">1080p Full HD (.mp4)</option>
+                                        </select>
+                                    </div>
+
+                                    <button class="btn btn-primary btn-block btn-lg" id="startIgDownloadBtn">
+                                        ⬇️ Download Reel File Now
+                                    </button>
+
+                                    <!-- Progress Bar -->
+                                    <div class="download-progress-wrap hidden" id="igProgressWrap">
+                                        <div class="progress-info">
+                                            <span id="igProgressStatus">Processing Instagram video stream...</span>
+                                            <span id="igProgressPercent">0%</span>
+                                        </div>
+                                        <div class="progress-bar-bg">
+                                            <div class="progress-bar-fill" id="igProgressBar" style="width: 0%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- TOOL WORKSPACE 2: YouTube Thumbnail Extractor -->
+                <div class="tool-workspace hidden" id="workspace-yt-thumbnail">
+                    <div class="input-hero-group">
+                        <label for="ytThumbUrl">Paste YouTube URL or Shorts Link:</label>
+                        <div class="input-with-button">
+                            <div class="input-clear-wrapper">
+                                <input type="text" id="ytThumbUrl" placeholder="Paste YouTube link here (e.g. https://youtu.be/...)" value="">
+                                <button type="button" class="input-clear-btn hidden" id="clearYtThumbUrl" title="Clear link (1-click)">✕</button>
+                            </div>
+                            <button class="btn btn-primary" id="extractThumbBtn">Extract Thumbnails ✨</button>
+                        </div>
+                    </div>
+
+                    <div class="thumbnails-grid-result hidden" id="thumbResultsArea">
+                        <div class="thumb-card-box">
+                            <div class="thumb-header">
+                                <span>Ultra HD (1080p MaxRes)</span>
+                                <span class="badge-tag">1920 x 1080</span>
+                            </div>
+                            <div class="thumb-img-frame">
+                                <img id="thumbMaxResImg" src="" alt="1080p Thumbnail">
+                            </div>
+                            <div class="thumb-card-actions">
+                                <a id="dlMaxResLink" href="#" download="maxres-thumbnail.jpg" target="_blank" class="btn btn-primary btn-sm">Download 1080p HD</a>
+                                <button class="btn btn-outline btn-sm copy-url-btn" data-url-target="thumbMaxResImg">Copy URL</button>
+                            </div>
+                        </div>
+
+                        <div class="thumb-card-box">
+                            <div class="thumb-header">
+                                <span>High Quality (HQ)</span>
+                                <span class="badge-tag">480 x 360</span>
+                            </div>
+                            <div class="thumb-img-frame">
+                                <img id="thumbHqImg" src="" alt="HQ Thumbnail">
+                            </div>
+                            <div class="thumb-card-actions">
+                                <a id="dlHqLink" href="#" download="hq-thumbnail.jpg" target="_blank" class="btn btn-primary btn-sm">Download HQ</a>
+                                <button class="btn btn-outline btn-sm copy-url-btn" data-url-target="thumbHqImg">Copy URL</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE 2B: YouTube Title, Description & Tag Finder -->
+                <div class="tool-workspace hidden" id="workspace-yt-metadata">
+                    <div class="input-hero-group">
+                        <label for="ytMetaUrl">Enter YouTube Video Link or Shorts URL:</label>
+                        <div class="input-with-button">
+                            <div class="input-clear-wrapper">
+                                <input type="text" id="ytMetaUrl" placeholder="Paste YouTube video link or Shorts URL here..." value="">
+                                <button type="button" class="input-clear-btn hidden" id="clearYtMetaUrl" title="Clear link (1-click)">✕</button>
+                            </div>
+                            <button class="btn btn-primary" id="extractMetaBtn">Extract Title, Desc & Tags 🏷️</button>
+                        </div>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div class="tool-loader hidden" id="metaLoader">
+                        <div class="spinner"></div>
+                        <p>Extracting YouTube video metadata & hidden tags...</p>
+                    </div>
+
+                    <!-- Result Container (Blank by default until extracted) -->
+                    <div class="meta-results-container hidden" id="metaResultsArea">
+                        
+                        <!-- Video Title Box -->
+                        <div class="meta-card-box">
+                            <div class="meta-card-header">
+                                <h3>📌 Video Title</h3>
+                                <button class="btn btn-outline btn-sm" id="copyTitleBtn">Copy Title 📋</button>
+                            </div>
+                            <div class="meta-content-text" id="metaTitleDisplay"></div>
+                        </div>
+
+                        <!-- Video Tags & Keywords Box -->
+                        <div class="meta-card-box mt-3">
+                            <div class="meta-card-header">
+                                <h3>🏷️ Extracted SEO Tags & Keywords (<span id="tagCountNum">0</span> Tags)</h3>
+                                <button class="btn btn-primary btn-sm" id="copyAllTagsBtn">Copy All Tags 🏷️</button>
+                            </div>
+                            <div class="tags-cloud" id="metaTagsCloud">
+                                <!-- Tags pills inserted via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Video Description Box -->
+                        <div class="meta-card-box mt-3">
+                            <div class="meta-card-header">
+                                <h3>📝 Full Video Description</h3>
+                                <button class="btn btn-outline btn-sm" id="copyDescBtn">Copy Description 📋</button>
+                            </div>
+                            <pre class="meta-desc-box" id="metaDescDisplay"></pre>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE 2C: Channel Keyword & Info Extractor -->
+                <div class="tool-workspace hidden" id="workspace-channel-extractor">
+                    <div class="input-hero-group">
+                        <label for="channelExtractorUrl">Enter YouTube Channel URL or Video URL:</label>
+                        <div class="input-with-button">
+                            <div class="input-clear-wrapper">
+                                <input type="text" id="channelExtractorUrl" placeholder="Paste channel URL (e.g. https://youtube.com/@ChannelName) or video URL..." value="">
+                                <button type="button" class="input-clear-btn hidden" id="clearChannelExtractorUrl" title="Clear link (1-click)">✕</button>
+                            </div>
+                            <button class="btn btn-primary" id="extractChannelInfoBtn">Extract Channel Info 🔍</button>
+                        </div>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div class="tool-loader hidden" id="channelInfoLoader">
+                        <div class="spinner"></div>
+                        <p>Scraping YouTube channel data & keywords...</p>
+                    </div>
+
+                    <!-- Result Container -->
+                    <div class="channel-results-container hidden" id="channelResultsArea">
+
+                        <!-- Channel Header Card -->
+                        <div class="channel-header-card">
+                            <img class="channel-avatar" id="channelAvatar" src="" alt="Channel Avatar">
+                            <div class="channel-header-info">
+                                <h3 id="channelNameDisplay">Channel Name</h3>
+                                <span class="channel-vanity" id="channelVanityDisplay"></span>
+                                <div class="channel-stats-row">
+                                    <span class="channel-stat-badge" id="channelSubCount">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                        <span id="channelSubText">—</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Channel Keywords Box -->
+                        <div class="meta-card-box mt-3">
+                            <div class="meta-card-header">
+                                <h3>🏷️ Channel Keywords & SEO Tags (<span id="channelTagCountNum">0</span> Tags)</h3>
+                                <button class="btn btn-primary btn-sm" id="copyChannelTagsBtn">Copy All Tags 🏷️</button>
+                            </div>
+                            <div class="tags-cloud" id="channelTagsCloud">
+                                <!-- Tags pills inserted via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Channel Description Box -->
+                        <div class="meta-card-box mt-3">
+                            <div class="meta-card-header">
+                                <h3>📝 Channel Description</h3>
+                                <button class="btn btn-outline btn-sm" id="copyChannelDescBtn">Copy Description 📋</button>
+                            </div>
+                            <pre class="meta-desc-box" id="channelDescDisplay"></pre>
+                        </div>
+
+                        <!-- Channel URL Box -->
+                        <div class="meta-card-box mt-3">
+                            <div class="meta-card-header">
+                                <h3>🔗 Channel URL</h3>
+                                <button class="btn btn-outline btn-sm" id="copyChannelUrlBtn">Copy URL 📋</button>
+                            </div>
+                            <div class="meta-content-text" id="channelUrlDisplay"></div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE 3: AI Voice Synthesizer -->
+                <div class="tool-workspace hidden" id="workspace-audio-generator">
+                    <div class="tts-container">
+                        
+                        <div class="tts-input-area">
+                            <label for="ttsTextInput">Enter Script or Hindi Conversation (Supports Man & Woman dialogue):</label>
+                            <div class="input-clear-wrapper">
+                                <textarea id="ttsTextInput" rows="5" placeholder="Type or paste your script here...&#10;For Man & Woman Hindi dialogue, format like this:&#10;Man: नमस्ते! आप कैसी हैं?&#10;Woman: मैं ठीक हूँ! आप बताइए।&#10;Man: क्या आप आज शाम फ्री हैं?&#10;Woman: हाँ बिल्कुल, हम मिल सकते हैं।"></textarea>
+                                <button type="button" class="input-clear-btn input-clear-btn-textarea hidden" id="clearTtsTextBtn" title="Clear text (1-click)">✕</button>
+                            </div>
+                        </div>
+
+
+
+                        <div class="tts-controls-grid mt-3">
+                            <div class="form-group">
+                                <label for="ttsVoiceSelect">Select Voice Speaker / Mode:</label>
+                                <select id="ttsVoiceSelect" class="form-control">
+                                    <!-- Dynamic Voices & Hindi Presets Populated via JS -->
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ttsPitch">Voice Pitch: <span id="pitchVal">1.0</span></label>
+                                <input type="range" id="ttsPitch" min="0.5" max="2" step="0.1" value="1">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ttsRate">Speaking Speed: <span id="rateVal">1.0x</span></label>
+                                <input type="range" id="ttsRate" min="0.5" max="2" step="0.1" value="1">
+                            </div>
+                        </div>
+
+                        <!-- Audio Waveform Visualizer Canvas -->
+                        <div class="waveform-box mt-3">
+                            <canvas id="waveCanvas" width="600" height="80"></canvas>
+                        </div>
+
+                        <div class="tts-action-buttons">
+                            <button class="btn btn-primary btn-lg" id="playTtsBtn">▶️ Generate & Speak Voice</button>
+                            <button class="btn btn-outline btn-lg" id="pauseTtsBtn">⏸️ Pause</button>
+                            <button class="btn btn-secondary btn-lg" id="stopTtsBtn">⏹️ Stop</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE 5: Image Studio & Aspect Ratio Editor -->
+                <div class="tool-workspace hidden" id="workspace-image-studio">
+                    <div class="image-studio-box">
+                        <div class="upload-dropzone" id="imgDropzone">
+                            <div class="dz-icon">🖼️</div>
+                            <h3>Upload Image to Change Aspect Ratio & Resize</h3>
+                            <p>Drag & drop photo here or click to browse files</p>
+                            <input type="file" id="imgInput" accept="image/*" class="hidden">
+                        </div>
+
+                        <div class="image-studio-workspace hidden" id="imgPreviewArea">
+                            <div class="studio-layout-grid">
+                                <!-- Left Control Panel -->
+                                <div class="studio-controls-panel">
+                                    
+                                    <!-- Aspect Ratio Controls -->
+                                    <div class="control-group-box">
+                                        <h4 class="control-group-title">📐 Select Aspect Ratio</h4>
+                                        <div class="aspect-ratio-buttons" id="aspectRatioGroup">
+                                            <button class="btn btn-outline aspect-btn active" data-ratio="original" data-w="0" data-h="0">
+                                                <span>Original</span>
+                                                <small>Auto Ratio</small>
+                                            </button>
+                                            <button class="btn btn-outline aspect-btn" data-ratio="1:1" data-w="1080" data-h="1080">
+                                                <span>1:1 Square</span>
+                                                <small>1080x1080 (IG/Post)</small>
+                                            </button>
+                                            <button class="btn btn-outline aspect-btn" data-ratio="16:9" data-w="1920" data-h="1080">
+                                                <span>16:9 Landscape</span>
+                                                <small>1920x1080 (YT/HD)</small>
+                                            </button>
+                                            <button class="btn btn-outline aspect-btn" data-ratio="9:16" data-w="1080" data-h="1920">
+                                                <span>9:16 Vertical</span>
+                                                <small>1080x1920 (Reel/Story)</small>
+                                            </button>
+                                            <button class="btn btn-outline aspect-btn" data-ratio="4:5" data-w="1080" data-h="1350">
+                                                <span>4:5 Portrait</span>
+                                                <small>1080x1350 (IG Feed)</small>
+                                            </button>
+                                            <button class="btn btn-outline aspect-btn" data-ratio="4:3" data-w="1440" data-h="1080">
+                                                <span>4:3 Standard</span>
+                                                <small>1440x1080 (Classic)</small>
+                                            </button>
+                                            <button class="btn btn-outline aspect-btn" data-ratio="3:2" data-w="1620" data-h="1080">
+                                                <span>3:2 Photo</span>
+                                                <small>1620x1080 (DSLR)</small>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Fit Mode Controls -->
+                                    <div class="control-group-box mt-3">
+                                        <h4 class="control-group-title">✂️ Resize & Fit Mode</h4>
+                                        <div class="fit-mode-buttons" id="fitModeGroup">
+                                            <button class="btn btn-outline fit-btn active" data-fit="cover">
+                                                <span>Crop & Cover</span>
+                                                <small>Fill box completely</small>
+                                            </button>
+                                            <button class="btn btn-outline fit-btn" data-fit="contain">
+                                                <span>Contain & Pad</span>
+                                                <small>Fit inside with padding</small>
+                                            </button>
+                                            <button class="btn btn-outline fit-btn" data-fit="stretch">
+                                                <span>Stretch / Scale</span>
+                                                <small>Exact aspect fill</small>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Canvas Background (for contain mode) -->
+                                    <div class="control-group-box mt-3" id="bgColorGroup">
+                                        <h4 class="control-group-title">🎨 Padding Background Color</h4>
+                                        <div class="color-options-row">
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="bgPadColor" value="#ffffff" checked>
+                                                <span class="swatch-circle" style="background:#ffffff; border:1px solid #ccc;"></span> White
+                                            </label>
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="bgPadColor" value="#000000">
+                                                <span class="swatch-circle" style="background:#000000;"></span> Dark
+                                            </label>
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="bgPadColor" value="#6366f1">
+                                                <span class="swatch-circle" style="background:#6366f1;"></span> Indigo
+                                            </label>
+                                            <label class="color-swatch-label">
+                                                <input type="color" id="customBgColorInput" value="#000000" class="color-picker-input">
+                                                Custom
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Filter Presets -->
+                                    <div class="control-group-box mt-3">
+                                        <h4 class="control-group-title">✨ Photo Color Filters</h4>
+                                        <div class="filter-controls">
+                                            <button class="btn btn-sm btn-outline filter-btn active" data-filter="none">Original</button>
+                                            <button class="btn btn-sm btn-outline filter-btn" data-filter="grayscale(100%)">B&W</button>
+                                            <button class="btn btn-sm btn-outline filter-btn" data-filter="sepia(80%)">Vintage Sepia</button>
+                                            <button class="btn btn-sm btn-outline filter-btn" data-filter="contrast(150%)">High Contrast</button>
+                                            <button class="btn btn-sm btn-outline filter-btn" data-filter="saturate(200%)">Vibrant Pop</button>
+                                            <button class="btn btn-sm btn-outline filter-btn" data-filter="hue-rotate(90deg)">Warm Sunset</button>
+                                            <button class="btn btn-sm btn-outline filter-btn" data-filter="blur(3px)">Soft Blur</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- Right Canvas Preview Area -->
+                                <div class="studio-preview-panel text-center">
+                                    <div class="preview-header-bar">
+                                        <span class="badge-tag" id="currentResolutionBadge">Original Resolution</span>
+                                        <button class="btn btn-outline btn-sm" id="changeImgBtn">Upload New Image 🔄</button>
+                                    </div>
+
+                                    <div class="canvas-viewport-wrap">
+                                        <canvas id="imageStudioCanvas"></canvas>
+                                    </div>
+
+                                    <div class="studio-export-box mt-3">
+                                        <div class="form-group-inline">
+                                            <label for="exportFormatSelect">Format:</label>
+                                            <select id="exportFormatSelect" class="form-control form-control-sm">
+                                                <option value="image/png">PNG (.png)</option>
+                                                <option value="image/jpeg">JPG (.jpg - High Quality)</option>
+                                                <option value="image/webp">WebP (.webp)</option>
+                                            </select>
+                                        </div>
+                                        <button class="btn btn-primary btn-lg btn-block" id="downloadResizedImgBtn">
+                                            ⬇️ Download Resized Photo Now
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE 6: Video Aspect Ratio Changer -->
+                <div class="tool-workspace hidden" id="workspace-aspect-ratio-changer">
+                    <div class="input-hero-group">
+                        <label for="aspectVideoInput">Select a video from your computer:</label>
+                        <input type="file" id="aspectVideoInput" accept="video/*" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="aspectRatioSelect">Target Aspect Ratio:</label>
+                        <select id="aspectRatioSelect" class="form-control">
+                            <option value="9:16">9:16 (Reels / Shorts / Stories)</option>
+                            <option value="16:9">16:9 (Standard Landscape)</option>
+                            <option value="1:1">1:1 (Square)</option>
+                            <option value="4:5">4:5 (Instagram Portrait)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="aspectModeSelect">Method:</label>
+                        <select id="aspectModeSelect" class="form-control">
+                            <option value="pad">Pad (keep full video, add black bars)</option>
+                            <option value="crop">Crop (fill frame, cut off edges)</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary btn-block btn-lg" id="convertAspectBtn">🎬 Convert Video</button>
+
+                    <div class="tool-loader hidden" id="aspectLoader">
+                        <div class="spinner"></div>
+                        <p>Processing your video... this may take a moment.</p>
+                    </div>
+                </div>
+
+
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Popup -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container footer-container">
+            <div class="footer-brand">
+                <a href="#" class="brand-logo">
+                    <span class="brand-name">OmniTools</span>
+                </a>
+                <p>Simplify your digital workflow with fast, secure, and beautiful web tools.</p>
+            </div>
+            <div class="footer-links">
+                <div>
+                    <h4>Tools</h4>
+                    <a href="#" class="tool-quick-link" data-tool="yt-downloader">YT Downloader</a>
+                    <a href="#" class="tool-quick-link" data-tool="yt-thumbnail">Thumbnail Extractor</a>
+                    <a href="#" class="tool-quick-link" data-tool="channel-extractor">Channel Extractor</a>
+                    <a href="#" class="tool-quick-link" data-tool="audio-generator">AI Voice Synthesizer</a>
+                </div>
+                <div>
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="#testimonials">Testimonials</a>
+                    <a href="#pricing">Pricing</a>
+                </div>
+                <div>
+                    <h4>Legal</h4>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom text-center">
+            <p>© 2026 OmniTools Platform. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
