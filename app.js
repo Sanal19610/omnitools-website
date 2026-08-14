@@ -775,9 +775,6 @@ async function analyzeYouTubeLink() {
     const selectedOption = qualitySelect.options[qualitySelect.selectedIndex];
     const formatId = selectedOption ? selectedOption.value : '1080p';
     const ext = selectedOption?.dataset?.ext || 'mp4';
-    const isAudio = ext === 'mp3' || formatId.includes('mp3');
-
-    let downloadUrl = getBackendUrl(`/api/download?url=${encodeURIComponent(url)}&format=${encodeURIComponent(formatId)}`);
 
     startDownloadBtn.disabled = true;
     startDownloadBtn.innerHTML = '⏳ Processing Download...';
@@ -789,58 +786,165 @@ async function analyzeYouTubeLink() {
 
     if (ytProgressWrap) {
         ytProgressWrap.classList.remove('hidden');
-        ytProgressBar.style.width = '20%';
-        ytProgressPercent.textContent = '20%';
-        ytProgressStatus.textContent = isAudio ? 'Processing high-quality MP3 audio...' : 'Processing video stream...';
+        ytProgressBar.style.width = '10%';
+        ytProgressPercent.textContent = '10%';
+        ytProgressStatus.textContent = 'Finding best download source...';
     }
 
     showToast('Starting download... 📥');
 
+    const videoId = extractYouTubeId(url);
+    const videoTitle = document.getElementById('ytVideoTitle')?.textContent || 'video';
+    const safeTitle = videoTitle.replace(/[\\/:"*?<>|]+/g, '');
+
+    // Extract height from formatId (e.g. "1440p" -> "1440", "2160p" -> "2160")
+    const qualityHeight = formatId.replace('p', '');
+
+    // Strategy 1: Try local backend (has yt-dlp for real downloads)
     try {
-        const response = await fetch(downloadUrl);
-        if (!response.ok) throw new Error('Download failed on backend server.');
+        const localBackendUrl = `http://localhost:3000/api/download?url=${encodeURIComponent(url)}&format=${encodeURIComponent(formatId)}`;
 
         if (ytProgressWrap) {
-            ytProgressBar.style.width = '75%';
-            ytProgressPercent.textContent = '75%';
-            ytProgressStatus.textContent = 'Preparing file for download...';
+            ytProgressBar.style.width = '20%';
+            ytProgressPercent.textContent = '20%';
+            ytProgressStatus.textContent = 'Connecting to local download server...';
         }
 
-        const blob = await response.blob();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const response = await fetch(localBackendUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
-        if (ytProgressWrap) {
-            ytProgressBar.style.width = '100%';
-            ytProgressPercent.textContent = '100%';
-            ytProgressStatus.textContent = 'Download ready!';
+        if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            // If it returns an actual video file (not JSON), download it
+            if (contentType.includes('video') || contentType.includes('octet-stream') || contentType.includes('mp4')) {
+                if (ytProgressWrap) {
+                    ytProgressBar.style.width = '50%';
+                    ytProgressPercent.textContent = '50%';
+                    ytProgressStatus.textContent = 'Downloading video from local server...';
+                }
+
+                const blob = await response.blob();
+
+                if (ytProgressWrap) {
+                    ytProgressBar.style.width = '100%';
+                    ytProgressPercent.textContent = '100%';
+                    ytProgressStatus.textContent = 'Download complete!';
+                }
+
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `${safeTitle}.${ext}`;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(blobUrl);
+                    if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
+                    startDownloadBtn.disabled = false;
+                    startDownloadBtn.innerHTML = '⬇️ Download File Now';
+                    showToast('Download complete! 🎉');
+                }, 1000);
+                return;
+            }
         }
+    } catch (e) {
+        console.log('Local backend not available, trying online services...');
+    }
 
-        const videoTitle = document.getElementById('ytVideoTitle')?.textContent || 'video';
-        const safeTitle = videoTitle.replace(/[\\/:"*?<>|]+/g, '');
+    // Strategy 2: Try Cobalt API instances for direct download
+    const cobaltInstances = [
+        'https://api.cobalt.tools',
+        'https://cobalt-api.kwiatekmiki.com',
+        'https://cobalt.api.timelessnesses.me'
+    ];
 
-        const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `${safeTitle}.${ext}`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    for (const instance of cobaltInstances) {
+        try {
+            if (ytProgressWrap) {
+                ytProgressBar.style.width = '30%';
+                ytProgressPercent.textContent = '30%';
+                ytProgressStatus.textContent = 'Connecting to download service...';
+            }
 
-        setTimeout(() => {
-            window.URL.revokeObjectURL(blobUrl);
-            if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
-            startDownloadBtn.disabled = false;
-            startDownloadBtn.innerHTML = '⬇️ Download File Now';
-            showToast('Download started successfully! 🎉');
-        }, 1000);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const cobaltRes = await fetch(instance, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: `https://www.youtube.com/watch?v=${videoId}`,
+                    videoQuality: qualityHeight,
+                    downloadMode: 'auto',
+                    filenameStyle: 'pretty'
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
 
-    } catch (err) {
-        console.error('Download error:', err);
+            if (cobaltRes.ok) {
+                const cobaltData = await cobaltRes.json();
+                if (cobaltData.url) {
+                    if (ytProgressWrap) {
+                        ytProgressBar.style.width = '60%';
+                        ytProgressPercent.textContent = '60%';
+                        ytProgressStatus.textContent = 'Download link found! Starting download...';
+                    }
+
+                    // Download via the cobalt tunnel URL
+                    const link = document.createElement('a');
+                    link.href = cobaltData.url;
+                    link.download = `${safeTitle}.${ext}`;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    if (ytProgressWrap) {
+                        ytProgressBar.style.width = '100%';
+                        ytProgressPercent.textContent = '100%';
+                        ytProgressStatus.textContent = 'Download started!';
+                    }
+
+                    setTimeout(() => {
+                        if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
+                        startDownloadBtn.disabled = false;
+                        startDownloadBtn.innerHTML = '⬇️ Download File Now';
+                        showToast('Download started! Check your browser downloads. 🎉');
+                    }, 2000);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.log(`Cobalt instance ${instance} failed:`, e.message);
+        }
+    }
+
+    // Strategy 3: Redirect to ssyoutube download service
+    if (ytProgressWrap) {
+        ytProgressBar.style.width = '50%';
+        ytProgressPercent.textContent = '50%';
+        ytProgressStatus.textContent = 'Opening download page...';
+    }
+
+    const downloadPageUrl = `https://ssyoutube.com/watch?v=${videoId}`;
+    window.open(downloadPageUrl, '_blank');
+
+    setTimeout(() => {
         if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
         startDownloadBtn.disabled = false;
         startDownloadBtn.innerHTML = '⬇️ Download File Now';
-        showToast('Download in progress. Check your downloads folder.', 'info');
-    }
+        showToast('Download page opened in new tab! Select your quality there. 📥', 'info');
+    }, 2000);
 });
 }
 
