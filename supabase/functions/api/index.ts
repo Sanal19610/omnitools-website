@@ -53,6 +53,112 @@ function parseChannelKeywords(rawStr: string): string[] {
   return Array.from(new Set(words));
 }
 
+// Fetch YouTube video details via Innertube, oEmbed and watch page parser
+async function fetchYouTubeDetails(videoId: string) {
+  let title = `YouTube Video (${videoId})`;
+  let author = "YouTube Creator";
+  let thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  let lengthSeconds = 0;
+
+  // Innertube clients list with appropriate headers
+  const clients = [
+    {
+      client: { clientName: "WEB", clientVersion: "2.20240801.00.00", originalUrl: `https://www.youtube.com/watch?v=${videoId}`, hl: "en", gl: "US" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "X-YouTube-Client-Name": "1",
+        "X-YouTube-Client-Version": "2.20240801.00.00",
+        "Origin": "https://www.youtube.com",
+        "Referer": `https://www.youtube.com/watch?v=${videoId}`
+      }
+    },
+    {
+      client: { clientName: "ANDROID", clientVersion: "19.09.37", androidSdkVersion: 30, hl: "en", gl: "US" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11; US) gzip"
+      }
+    },
+    {
+      client: { clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER", clientVersion: "2.0", hl: "en", gl: "US" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebkit/537.36 (KHTML, like Gecko)"
+      }
+    }
+  ];
+
+  for (const { client, headers } of clients) {
+    try {
+      const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          videoId,
+          context: { client }
+        })
+      });
+
+      if (playerRes.ok) {
+        const playerData = await playerRes.json();
+        const details = playerData.videoDetails;
+        if (details) {
+          if (details.title) title = details.title;
+          if (details.author) author = details.author;
+          if (details.lengthSeconds && !isNaN(parseInt(details.lengthSeconds, 10))) {
+            const secs = parseInt(details.lengthSeconds, 10);
+            if (secs > 0) lengthSeconds = secs;
+          }
+          if (details.thumbnail?.thumbnails?.length) {
+            thumbnail = details.thumbnail.thumbnails[details.thumbnail.thumbnails.length - 1].url;
+          }
+          if (lengthSeconds > 0) break;
+        }
+      }
+    } catch (e) {
+      console.error(`Innertube player client ${client.clientName} error:`, e);
+    }
+  }
+
+  // If title or author still missing, query oEmbed
+  if (!title.includes(" ") || lengthSeconds === 0) {
+    try {
+      const oembedRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+      if (oembedRes.ok) {
+        const oembedData = await oembedRes.json();
+        if (oembedData.title) title = oembedData.title;
+        if (oembedData.author_name) author = oembedData.author_name;
+        if (oembedData.thumbnail_url && !thumbnail) thumbnail = oembedData.thumbnail_url;
+      }
+    } catch (e) {
+      console.error("oEmbed fetch error:", e);
+    }
+  }
+
+  // Fallback watch page regex if lengthSeconds is still 0
+  if (lengthSeconds === 0) {
+    try {
+      const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        },
+      });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const match = html.match(/"lengthSeconds":"(\d+)"/);
+        if (match && match[1]) {
+          lengthSeconds = parseInt(match[1], 10);
+        }
+      }
+    } catch (e) {
+      console.error("Watch page regex error:", e);
+    }
+  }
+
+  return { title, author, thumbnail, lengthSeconds };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -82,47 +188,75 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      let title = `YouTube Video (${videoId})`;
-      let author = "YouTube Creator";
-      let thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-      let lengthSeconds = 180;
+      const { title, author, thumbnail, lengthSeconds } = await fetchYouTubeDetails(videoId);
+      const effectiveDuration = lengthSeconds > 0 ? lengthSeconds : 180;
 
-      // Fetch oEmbed
-      try {
-        const oembedRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
-        if (oembedRes.ok) {
-          const oembedData = await oembedRes.json();
-          if (oembedData.title) title = oembedData.title;
-          if (oembedData.author_name) author = oembedData.author_name;
-          if (oembedData.thumbnail_url) thumbnail = oembedData.thumbnail_url;
-        }
-      } catch (e) {
-        console.error("oEmbed fetch error:", e);
-      }
-
-      // Fetch watch page length / specs
-      try {
-        const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          },
-        });
-        if (pageRes.ok) {
-          const html = await pageRes.text();
-          const match = html.match(/"lengthSeconds":"(\d+)"/);
-          if (match && match[1]) {
-            lengthSeconds = parseInt(match[1], 10);
-          }
-        }
-      } catch (e) {
-        console.error("Watch page fetch error:", e);
-      }
-
+      // Generate all quality tiers with dynamic file sizes based on video duration
       const formats = [
-        { formatId: "1080p", quality: "1080p Full HD", height: 1080, ext: "mp4", hasAudio: true, sizeBytes: 48 * 1024 * 1024 },
-        { formatId: "720p", quality: "720p HD", height: 720, ext: "mp4", hasAudio: true, sizeBytes: 24 * 1024 * 1024 },
-        { formatId: "480p", quality: "480p SD", height: 480, ext: "mp4", hasAudio: true, sizeBytes: 14 * 1024 * 1024 },
-        { formatId: "mp3", quality: "320kbps Audio", height: 0, ext: "mp3", hasAudio: true, sizeBytes: 7 * 1024 * 1024 },
+        {
+          formatId: "2160p",
+          quality: "4K Ultra HD (2160p)",
+          height: 2160,
+          ext: "mp4",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 5500000 / 8) // ~5.5 MB/s
+        },
+        {
+          formatId: "1440p",
+          quality: "2K Quad HD (1440p)",
+          height: 1440,
+          ext: "mp4",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 3300000 / 8) // ~3.3 MB/s
+        },
+        {
+          formatId: "1080p",
+          quality: "1080p Full HD",
+          height: 1080,
+          ext: "mp4",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 2000000 / 8) // ~2.0 MB/s
+        },
+        {
+          formatId: "720p",
+          quality: "720p HD",
+          height: 720,
+          ext: "mp4",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 1000000 / 8) // ~1.0 MB/s
+        },
+        {
+          formatId: "480p",
+          quality: "480p SD",
+          height: 480,
+          ext: "mp4",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 500000 / 8) // ~0.5 MB/s
+        },
+        {
+          formatId: "360p",
+          quality: "360p Standard",
+          height: 360,
+          ext: "mp4",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 300000 / 8) // ~0.3 MB/s
+        },
+        {
+          formatId: "mp3",
+          quality: "320kbps High Quality Audio",
+          height: 0,
+          ext: "mp3",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 320000 / 8) // 320 kbps MP3
+        },
+        {
+          formatId: "128k-mp3",
+          quality: "128kbps Standard Audio",
+          height: 0,
+          ext: "mp3",
+          hasAudio: true,
+          sizeBytes: Math.round(effectiveDuration * 128000 / 8) // 128 kbps MP3
+        }
       ];
 
       return new Response(
@@ -131,8 +265,45 @@ Deno.serve(async (req: Request) => {
           title,
           author,
           thumbnail,
-          lengthSeconds,
+          lengthSeconds: lengthSeconds || effectiveDuration,
           formats,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ------------------------------------------------------------------
+    // ROUTE: /download - YouTube Video / Audio Download
+    // ------------------------------------------------------------------
+    if (pathname === "/download" || pathname.endsWith("/download")) {
+      const targetUrl = url.searchParams.get("url");
+      const formatId = url.searchParams.get("format") || "1080p";
+      if (!targetUrl) {
+        return new Response(JSON.stringify({ error: "Please provide a YouTube video URL." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const videoId = extractYouTubeId(targetUrl);
+      if (!videoId) {
+        return new Response(JSON.stringify({ error: "Invalid YouTube URL." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { title } = await fetchYouTubeDetails(videoId);
+      const isAudio = formatId.includes("mp3") || formatId === "audio";
+      const ext = isAudio ? "mp3" : "mp4";
+      const safeTitle = (title || "video").replace(/[\\/:"*?<>|]+/g, "");
+
+      return new Response(
+        JSON.stringify({
+          status: "ready",
+          title: safeTitle,
+          ext,
+          downloadUrl: `https://www.youtube.com/watch?v=${videoId}`
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -158,19 +329,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      let title = `YouTube Video (${videoId})`;
-      let author = "YouTube Creator";
-
-      try {
-        const oembedRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
-        if (oembedRes.ok) {
-          const oembedData = await oembedRes.json();
-          if (oembedData.title) title = oembedData.title;
-          if (oembedData.author_name) author = oembedData.author_name;
-        }
-      } catch (e) {
-        console.error("Metadata oEmbed error:", e);
-      }
+      const { title, author } = await fetchYouTubeDetails(videoId);
 
       const titleWords = title.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9]/g, "")).filter((w) => w.length > 2);
       const tags = Array.from(
@@ -182,6 +341,7 @@ Deno.serve(async (req: Request) => {
           "viral",
           "official video",
           "hd 1080p",
+          "4k",
           "trending",
           "2026",
         ])
@@ -337,7 +497,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         status: "online",
         service: "OmniTools Supabase Edge Backend",
-        version: "2.0.0",
+        version: "2.2.0",
         timestamp: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

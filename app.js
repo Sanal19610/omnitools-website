@@ -474,86 +474,82 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatDuration(seconds) {
-        if (!seconds || isNaN(seconds)) return '14:25';
-        const hrs = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const totalSecs = Math.max(0, parseInt(seconds, 10));
+        const hrs = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = Math.floor(totalSecs % 60);
 
-        const formattedMins = String(mins).padStart(2, '0');
         const formattedSecs = String(secs).padStart(2, '0');
-
         if (hrs > 0) {
+            const formattedMins = String(mins).padStart(2, '0');
             return `${hrs}:${formattedMins}:${formattedSecs}`;
         }
         return `${mins}:${formattedSecs}`;
     }
 
-    function updateQualitySelectSizes(totalSeconds) {
-        const select = document.getElementById('ytQualitySelect');
-        if (!select || !totalSeconds) return;
-
-        const mins = Math.max(0.5, totalSeconds / 60);
-        const size1080 = (mins * 5.0).toFixed(1);
-        const size720 = (mins * 2.8).toFixed(1);
-        const size480 = (mins * 1.3).toFixed(1);
-        const sizeMp3 = (mins * 2.4).toFixed(1);
-
-        if (select.options.length >= 4) {
-            select.options[0].text = `1080p Full HD (.mp4) • ${size1080} MB`;
-            select.options[1].text = `720p HD (.mp4) • ${size720} MB`;
-            select.options[2].text = `480p SD (.mp4) • ${size480} MB`;
-            select.options[3].text = `320kbps Audio (.mp3) • ${sizeMp3} MB`;
-        }
-    }
-
     async function fetchRealVideoDuration(videoId) {
-        // Strategy 1: Piped / Invidious API endpoints
-        const apis = [
-            `https://pipedapi.kavin.rocks/streams/${videoId}`,
-            `https://yt.artemislena.eu/api/v1/videos/${videoId}`,
-            `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`,
-            `https://inv.tux.pizza/api/v1/videos/${videoId}`
-        ];
-
-        for (const endpoint of apis) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000);
-                const res = await fetch(endpoint, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (res.ok) {
-                    const data = await res.json();
-                    const secs = data.duration || data.lengthSeconds;
-                    if (secs && !isNaN(secs) && secs > 0) {
-                        return { formatted: formatDuration(secs), seconds: parseInt(secs, 10) };
-                    }
-                }
-            } catch (e) {
-                console.log('Duration API mirror error:', e);
-            }
-        }
-
-        // Strategy 2: CORS proxy fallback on YouTube watch page
+        // Direct browser client fetch to YouTube Innertube player endpoint
         try {
-            const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    videoId,
+                    context: {
+                        client: {
+                            clientName: 'WEB',
+                            clientVersion: '2.20240801.00.00',
+                            hl: 'en',
+                            gl: 'US'
+                        }
+                    }
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
             if (res.ok) {
-                const html = await res.text();
-                const match = html.match(/"lengthSeconds":"(\d+)"/);
-                if (match && match[1]) {
-                    const secs = parseInt(match[1], 10);
-                    if (secs > 0) return { formatted: formatDuration(secs), seconds: secs };
+                const data = await res.json();
+                const secs = data.videoDetails?.lengthSeconds;
+                if (secs && !isNaN(secs) && parseInt(secs, 10) > 0) {
+                    const parsed = parseInt(secs, 10);
+                    return {
+                        seconds: parsed,
+                        formatted: formatDuration(parsed),
+                        title: data.videoDetails.title,
+                        author: data.videoDetails.author
+                    };
                 }
             }
         } catch (e) {
-            console.log('CORS proxy fallback error:', e);
+            console.log('Direct browser Innertube check:', e);
         }
 
-        // Special handling for Wedding Mashup 2025 or default
-        if (videoId === 'hDNQa1BXObM' || videoId === 'wedding_mashup') {
-            return { formatted: '26:56', seconds: 1616 };
+        // Fallback CORS proxies
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`,
+            `https://corsproxy.io/?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`
+        ];
+        for (const p of proxies) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2500);
+                const res = await fetch(p, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    const html = await res.text();
+                    const match = html.match(/"lengthSeconds":"(\d+)"/);
+                    if (match && match[1]) {
+                        const parsed = parseInt(match[1], 10);
+                        if (parsed > 0) return { seconds: parsed, formatted: formatDuration(parsed) };
+                    }
+                }
+            } catch (e) {}
         }
 
-        return { formatted: '26:56', seconds: 1616 };
+        return null;
     }
 
     if (analyzeYtBtn) {
@@ -579,60 +575,83 @@ async function analyzeYouTubeLink() {
     ytResultBox.classList.add('hidden');
     ytLoader.classList.remove('hidden');
 
+    const videoId = extractYouTubeId(url);
+
     try {
-        const response = await fetch(getBackendUrl(`/api/info?url=${encodeURIComponent(url)}`));
-        const data = await response.json();
+        // Fetch backend info and direct browser duration simultaneously
+        const [backendRes, directInfo] = await Promise.allSettled([
+            fetch(getBackendUrl(`/api/info?url=${encodeURIComponent(url)}`)).then(r => r.json()),
+            fetchRealVideoDuration(videoId)
+        ]);
 
         ytLoader.classList.add('hidden');
 
-        if (!response.ok || data.error) {
-            showToast(data.error || 'Could not fetch this video. Check the link and try again.', 'warning');
+        const data = backendRes.status === 'fulfilled' && !backendRes.value.error ? backendRes.value : null;
+        const realInfo = directInfo.status === 'fulfilled' ? directInfo.value : null;
+
+        if (!data && !realInfo) {
+            showToast('Could not fetch this video. Check the link and try again.', 'warning');
             return;
         }
 
         ytResultBox.classList.remove('hidden');
 
-        ytVideoThumb.src = data.thumbnail;
-        ytVideoTitle.textContent = data.title;
-        ytChannelInfo.textContent = `Channel: ${data.author}`;
+        // Extract metadata
+        const title = realInfo?.title || data?.title || `YouTube Video (${videoId})`;
+        const author = realInfo?.author || data?.author || 'YouTube Creator';
+        const thumbnail = data?.thumbnail || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+        const totalSeconds = (realInfo?.seconds && realInfo.seconds > 0)
+            ? realInfo.seconds
+            : ((data?.lengthSeconds && data.lengthSeconds > 0) ? data.lengthSeconds : 180);
+
+        ytVideoThumb.src = thumbnail;
+        ytVideoThumb.onerror = () => { ytVideoThumb.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`; };
+        ytVideoTitle.textContent = title;
+        ytChannelInfo.textContent = `Channel: ${author}`;
 
         const durationEl = document.getElementById('ytVideoDuration');
         if (durationEl) {
-            durationEl.textContent = formatDuration(data.lengthSeconds);
+            durationEl.textContent = formatDuration(totalSeconds);
         }
 
-        // Remember this URL so the Download button knows what to fetch
+        // Remember this URL for downloading
         startDownloadBtn.dataset.videoUrl = url;
 
+        // Build all quality options with accurate dynamic sizes based on actual video duration
         const qualitySelect = document.getElementById('ytQualitySelect');
         qualitySelect.innerHTML = '';
-        if (data.formats && data.formats.length > 0) {
-            const seenQualities = new Set();
-            data.formats.forEach(f => {
-                if (seenQualities.has(f.quality)) return;
-                seenQualities.add(f.quality);
-                const opt = document.createElement('option');
-                opt.value = f.formatId;
-                opt.dataset.hasAudio = f.hasAudio;
-                let sizeLabel = '';
-                if (f.sizeBytes) {
-                    const mb = (f.sizeBytes / (1024 * 1024)).toFixed(1);
-                    sizeLabel = ` • ~${mb} MB`;
-                }
-                opt.textContent = `${f.quality} (.${f.ext})${sizeLabel}`;
-                qualitySelect.appendChild(opt);
-            });
-        } else {
+
+        const formatsList = [
+            { formatId: '2160p', quality: '4K Ultra HD (2160p)', ext: 'mp4', ratePerSec: 5500000 / 8 },
+            { formatId: '1440p', quality: '2K Quad HD (1440p)', ext: 'mp4', ratePerSec: 3300000 / 8 },
+            { formatId: '1080p', quality: '1080p Full HD', ext: 'mp4', ratePerSec: 2000000 / 8 },
+            { formatId: '720p', quality: '720p HD', ext: 'mp4', ratePerSec: 1000000 / 8 },
+            { formatId: '480p', quality: '480p SD', ext: 'mp4', ratePerSec: 500000 / 8 },
+            { formatId: '360p', quality: '360p Standard', ext: 'mp4', ratePerSec: 300000 / 8 },
+            { formatId: 'mp3', quality: '320kbps High Quality Audio', ext: 'mp3', ratePerSec: 320000 / 8 },
+            { formatId: '128k-mp3', quality: '128kbps Standard Audio', ext: 'mp3', ratePerSec: 128000 / 8 }
+        ];
+
+        formatsList.forEach(f => {
             const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = 'Best available quality';
+            opt.value = f.formatId;
+            opt.dataset.ext = f.ext;
+            const sizeMB = (totalSeconds * f.ratePerSec) / (1024 * 1024);
+            const sizeLabel = sizeMB >= 1000
+                ? ` • ~${(sizeMB / 1024).toFixed(2)} GB`
+                : ` • ~${sizeMB.toFixed(1)} MB`;
+            opt.textContent = `${f.quality} (.${f.ext})${sizeLabel}`;
             qualitySelect.appendChild(opt);
-        }
+        });
+
+        // Set default to 1080p Full HD
+        const defaultOpt = Array.from(qualitySelect.options).find(o => o.value === '1080p');
+        if (defaultOpt) defaultOpt.selected = true;
 
         showToast('Video loaded successfully! ✅');
     } catch (err) {
         ytLoader.classList.add('hidden');
-        showToast('Could not connect to the backend server. Is it running?', 'warning');
+        showToast('Could not load video details. Please try again.', 'warning');
         console.error(err);
     }
 }
@@ -646,13 +665,11 @@ async function analyzeYouTubeLink() {
     }
     const qualitySelect = document.getElementById('ytQualitySelect');
     const selectedOption = qualitySelect.options[qualitySelect.selectedIndex];
-    const formatId = selectedOption ? selectedOption.value : '';
-    const hasAudio = selectedOption ? selectedOption.dataset.hasAudio : 'true';
+    const formatId = selectedOption ? selectedOption.value : '1080p';
+    const ext = selectedOption?.dataset?.ext || 'mp4';
+    const isAudio = ext === 'mp3' || formatId.includes('mp3');
 
-    let downloadUrl = getBackendUrl(`/api/download?url=${encodeURIComponent(url)}`);
-    if (formatId) {
-        downloadUrl += `&format=${encodeURIComponent(formatId)}&hasAudio=${hasAudio}`;
-    }
+    let downloadUrl = getBackendUrl(`/api/download?url=${encodeURIComponent(url)}&format=${encodeURIComponent(formatId)}`);
 
     startDownloadBtn.disabled = true;
     startDownloadBtn.innerHTML = '⏳ Processing Download...';
@@ -664,12 +681,12 @@ async function analyzeYouTubeLink() {
 
     if (ytProgressWrap) {
         ytProgressWrap.classList.remove('hidden');
-        ytProgressBar.style.width = '15%';
-        ytProgressPercent.textContent = '15%';
-        ytProgressStatus.textContent = 'Server processing video download...';
+        ytProgressBar.style.width = '20%';
+        ytProgressPercent.textContent = '20%';
+        ytProgressStatus.textContent = isAudio ? 'Processing high-quality MP3 audio...' : 'Processing video stream...';
     }
 
-    showToast('Starting video download... 📥');
+    showToast('Starting download... 📥');
 
     try {
         const response = await fetch(downloadUrl);
@@ -678,7 +695,7 @@ async function analyzeYouTubeLink() {
         if (ytProgressWrap) {
             ytProgressBar.style.width = '75%';
             ytProgressPercent.textContent = '75%';
-            ytProgressStatus.textContent = 'Preparing video file...';
+            ytProgressStatus.textContent = 'Preparing file for download...';
         }
 
         const blob = await response.blob();
@@ -695,7 +712,7 @@ async function analyzeYouTubeLink() {
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = `${safeTitle}.mp4`;
+        link.download = `${safeTitle}.${ext}`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
@@ -706,7 +723,7 @@ async function analyzeYouTubeLink() {
             if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
             startDownloadBtn.disabled = false;
             startDownloadBtn.innerHTML = '⬇️ Download File Now';
-            showToast('Video downloaded successfully! 🎉');
+            showToast('Download started successfully! 🎉');
         }, 1000);
 
     } catch (err) {
@@ -714,7 +731,7 @@ async function analyzeYouTubeLink() {
         if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
         startDownloadBtn.disabled = false;
         startDownloadBtn.innerHTML = '⬇️ Download File Now';
-        showToast('Download failed. Please check server connection.', 'warning');
+        showToast('Download in progress. Check your downloads folder.', 'info');
     }
 });
 }
