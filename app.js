@@ -561,11 +561,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 function getBackendUrl(path) {
-    let host = window.location.hostname;
-    if (!host || host === 'null' || host === '') {
-        host = 'localhost';
+    const cleanPath = path.replace(/^\/api/, '');
+    if (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.functionsUrl) {
+        return `${window.SUPABASE_CONFIG.functionsUrl}${cleanPath}`;
     }
-    return `http://${host}:3000${path}`;
+    return `https://tcacczhndrefkzntwzmu.supabase.co/functions/v1/api${cleanPath}`;
 }
 
 async function analyzeYouTubeLink() {
@@ -1790,7 +1790,7 @@ async function analyzeYouTubeLink() {
             convertAspectBtn.disabled = true;
 
             try {
-                const response = await fetch('http://localhost:3000/api/change-aspect-ratio', {
+                const response = await fetch(getBackendUrl('/change-aspect-ratio'), {
                     method: 'POST',
                     body: formData,
                 });
