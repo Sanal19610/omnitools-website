@@ -189,7 +189,7 @@ Deno.serve(async (req: Request) => {
       const { title, author, thumbnail, lengthSeconds } = await fetchYouTubeDetails(videoId);
       const effectiveDuration = lengthSeconds > 0 ? lengthSeconds : 2182;
 
-      // Generate all quality tiers with dynamic file sizes based on video duration
+      // Generate all MP4 video quality tiers with dynamic file sizes based on video duration
       const formats = [
         {
           formatId: "2160p",
@@ -238,22 +238,6 @@ Deno.serve(async (req: Request) => {
           ext: "mp4",
           hasAudio: true,
           sizeBytes: Math.round(effectiveDuration * 300000 / 8), // ~0.3 MB/s
-        },
-        {
-          formatId: "mp3",
-          quality: "320kbps High Quality Audio",
-          height: 0,
-          ext: "mp3",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 320000 / 8), // 320 kbps MP3
-        },
-        {
-          formatId: "128k-mp3",
-          quality: "128kbps Standard Audio",
-          height: 0,
-          ext: "mp3",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 128000 / 8), // 128 kbps MP3
         },
       ];
 

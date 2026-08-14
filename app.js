@@ -627,9 +627,7 @@ async function analyzeYouTubeLink() {
             { formatId: '1080p', quality: '1080p Full HD', ext: 'mp4', ratePerSec: 2000000 / 8 },
             { formatId: '720p', quality: '720p HD', ext: 'mp4', ratePerSec: 1000000 / 8 },
             { formatId: '480p', quality: '480p SD', ext: 'mp4', ratePerSec: 500000 / 8 },
-            { formatId: '360p', quality: '360p Standard', ext: 'mp4', ratePerSec: 300000 / 8 },
-            { formatId: 'mp3', quality: '320kbps High Quality Audio', ext: 'mp3', ratePerSec: 320000 / 8 },
-            { formatId: '128k-mp3', quality: '128kbps Standard Audio', ext: 'mp3', ratePerSec: 128000 / 8 }
+            { formatId: '360p', quality: '360p Standard', ext: 'mp4', ratePerSec: 300000 / 8 }
         ];
 
         formatsList.forEach(f => {
