@@ -617,34 +617,39 @@ async function analyzeYouTubeLink() {
         // Remember this URL for downloading
         startDownloadBtn.dataset.videoUrl = url;
 
-        // Build all quality options with accurate dynamic sizes based on actual video duration
+        // Build quality options matching the creator's exact published resolutions
         const qualitySelect = document.getElementById('ytQualitySelect');
         qualitySelect.innerHTML = '';
 
-        const formatsList = [
-            { formatId: '2160p', quality: '4K Ultra HD (2160p)', ext: 'mp4', ratePerSec: 5500000 / 8 },
-            { formatId: '1440p', quality: '2K Quad HD (1440p)', ext: 'mp4', ratePerSec: 3300000 / 8 },
+        const formatsToUse = (data?.formats && data.formats.length > 0) ? data.formats : [
             { formatId: '1080p', quality: '1080p Full HD', ext: 'mp4', ratePerSec: 2000000 / 8 },
             { formatId: '720p', quality: '720p HD', ext: 'mp4', ratePerSec: 1000000 / 8 },
             { formatId: '480p', quality: '480p SD', ext: 'mp4', ratePerSec: 500000 / 8 },
             { formatId: '360p', quality: '360p Standard', ext: 'mp4', ratePerSec: 300000 / 8 }
         ];
 
-        formatsList.forEach(f => {
+        formatsToUse.forEach(f => {
             const opt = document.createElement('option');
             opt.value = f.formatId;
-            opt.dataset.ext = f.ext;
-            const sizeMB = (totalSeconds * f.ratePerSec) / (1024 * 1024);
+            opt.dataset.ext = f.ext || 'mp4';
+            let sizeMB = 0;
+            if (f.sizeBytes) {
+                sizeMB = f.sizeBytes / (1024 * 1024);
+            } else if (f.ratePerSec) {
+                sizeMB = (totalSeconds * f.ratePerSec) / (1024 * 1024);
+            }
             const sizeLabel = sizeMB >= 1000
                 ? ` • ~${(sizeMB / 1024).toFixed(2)} GB`
-                : ` • ~${sizeMB.toFixed(1)} MB`;
-            opt.textContent = `${f.quality} (.${f.ext})${sizeLabel}`;
+                : (sizeMB > 0 ? ` • ~${sizeMB.toFixed(1)} MB` : '');
+            opt.textContent = `${f.quality} (.${f.ext || 'mp4'})${sizeLabel}`;
             qualitySelect.appendChild(opt);
         });
 
-        // Set default to 1080p Full HD
-        const defaultOpt = Array.from(qualitySelect.options).find(o => o.value === '1080p');
-        if (defaultOpt) defaultOpt.selected = true;
+        // Set default to highest available resolution or 1080p
+        if (qualitySelect.options.length > 0) {
+            const defaultOpt = Array.from(qualitySelect.options).find(o => o.value === '1080p') || qualitySelect.options[0];
+            if (defaultOpt) defaultOpt.selected = true;
+        }
 
         showToast('Video loaded successfully! ✅');
     } catch (err) {

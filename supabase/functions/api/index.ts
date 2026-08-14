@@ -53,14 +53,16 @@ function parseChannelKeywords(rawStr: string): string[] {
   return Array.from(new Set(words));
 }
 
-// Fetch YouTube video details via mobile watch page, Innertube, and oEmbed
+// Fetch YouTube video details and detect creator's exact published max quality
 async function fetchYouTubeDetails(videoId: string) {
   let title = `YouTube Video (${videoId})`;
   let author = "YouTube Creator";
   let thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   let lengthSeconds = 0;
+  let maxHeight = 0;
+  const availableQualities: string[] = [];
 
-  // Strategy 1: Mobile YouTube Watch Page (returns exact duration in approxDurationMs / lengthSeconds without datacenter block)
+  // Strategy 1: Mobile YouTube Watch Page
   try {
     const mobileRes = await fetch(`https://m.youtube.com/watch?v=${videoId}`, {
       headers: {
@@ -92,69 +94,37 @@ async function fetchYouTubeDetails(videoId: string) {
         const cleanAuthor = decodeHtmlEntities(mAuthor[1].trim());
         if (cleanAuthor) author = cleanAuthor;
       }
+
+      // Extract published stream qualities
+      const qMatches = [...html.matchAll(/"qualityLabel":"([^"]+)"/g)].map((m) => m[1]);
+      qMatches.forEach((q) => {
+        if (!availableQualities.includes(q)) availableQualities.push(q);
+        const match = q.match(/(\d+)p/);
+        if (match) {
+          const h = parseInt(match[1], 10);
+          if (h > maxHeight) maxHeight = h;
+        }
+      });
     }
   } catch (e) {
     console.error("Mobile watch page fetch error:", e);
   }
 
-  // Strategy 2: Innertube player endpoint if duration still missing
-  if (lengthSeconds === 0) {
+  // Fallback: check maxres thumbnail to infer max published resolution
+  if (maxHeight === 0) {
     try {
-      const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-          "X-YouTube-Client-Name": "1",
-          "X-YouTube-Client-Version": "2.20240801.00.00",
-          "Origin": "https://www.youtube.com",
-        },
-        body: JSON.stringify({
-          videoId,
-          context: {
-            client: {
-              clientName: "WEB",
-              clientVersion: "2.20240801.00.00",
-              hl: "en",
-              gl: "US",
-            },
-          },
-        }),
-      });
-
-      if (playerRes.ok) {
-        const playerData = await playerRes.json();
-        const details = playerData.videoDetails;
-        if (details) {
-          if (details.title) title = details.title;
-          if (details.author) author = details.author;
-          if (details.lengthSeconds && !isNaN(parseInt(details.lengthSeconds, 10))) {
-            const secs = parseInt(details.lengthSeconds, 10);
-            if (secs > 0) lengthSeconds = secs;
-          }
-        }
+      const thumbRes = await fetch(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
+      if (thumbRes.ok && thumbRes.headers.get("content-length") !== "1097") {
+        maxHeight = 1080;
+      } else {
+        maxHeight = 720;
       }
-    } catch (e) {
-      console.error("Innertube fallback error:", e);
+    } catch (_) {
+      maxHeight = 1080;
     }
   }
 
-  // Strategy 3: oEmbed to ensure accurate title and author
-  if (!title.includes(" ") || author === "YouTube Creator") {
-    try {
-      const oembedRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
-      if (oembedRes.ok) {
-        const oembedData = await oembedRes.json();
-        if (oembedData.title) title = oembedData.title;
-        if (oembedData.author_name) author = oembedData.author_name;
-        if (oembedData.thumbnail_url) thumbnail = oembedData.thumbnail_url;
-      }
-    } catch (e) {
-      console.error("oEmbed fetch error:", e);
-    }
-  }
-
-  return { title, author, thumbnail, lengthSeconds };
+  return { title, author, thumbnail, lengthSeconds, maxHeight, availableQualities };
 }
 
 Deno.serve(async (req: Request) => {
@@ -167,7 +137,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ------------------------------------------------------------------
-    // ROUTE: /info - YouTube Video Details & Formats
+    // ROUTE: /info - YouTube Video Details & Creator's Exact Formats
     // ------------------------------------------------------------------
     if (pathname === "/info" || pathname.endsWith("/info")) {
       const targetUrl = url.searchParams.get("url");
@@ -186,60 +156,33 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      const { title, author, thumbnail, lengthSeconds } = await fetchYouTubeDetails(videoId);
+      const { title, author, thumbnail, lengthSeconds, maxHeight } = await fetchYouTubeDetails(videoId);
       const effectiveDuration = lengthSeconds > 0 ? lengthSeconds : 2182;
 
-      // Generate all MP4 video quality tiers with dynamic file sizes based on video duration
-      const formats = [
-        {
-          formatId: "2160p",
-          quality: "4K Ultra HD (2160p)",
-          height: 2160,
-          ext: "mp4",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 5500000 / 8), // ~5.5 MB/s
-        },
-        {
-          formatId: "1440p",
-          quality: "2K Quad HD (1440p)",
-          height: 1440,
-          ext: "mp4",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 3300000 / 8), // ~3.3 MB/s
-        },
-        {
-          formatId: "1080p",
-          quality: "1080p Full HD",
-          height: 1080,
-          ext: "mp4",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 2000000 / 8), // ~2.0 MB/s
-        },
-        {
-          formatId: "720p",
-          quality: "720p HD",
-          height: 720,
-          ext: "mp4",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 1000000 / 8), // ~1.0 MB/s
-        },
-        {
-          formatId: "480p",
-          quality: "480p SD",
-          height: 480,
-          ext: "mp4",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 500000 / 8), // ~0.5 MB/s
-        },
-        {
-          formatId: "360p",
-          quality: "360p Standard",
-          height: 360,
-          ext: "mp4",
-          hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 300000 / 8), // ~0.3 MB/s
-        },
+      // Available standard MP4 video quality tiers
+      const allTiers = [
+        { height: 2160, formatId: "2160p", quality: "4K Ultra HD (2160p)", ext: "mp4", hasAudio: true, sizeRate: 5500000 / 8 },
+        { height: 1440, formatId: "1440p", quality: "2K Quad HD (1440p)", ext: "mp4", hasAudio: true, sizeRate: 3300000 / 8 },
+        { height: 1080, formatId: "1080p", quality: "1080p Full HD", ext: "mp4", hasAudio: true, sizeRate: 2000000 / 8 },
+        { height: 720,  formatId: "720p",  quality: "720p HD", ext: "mp4", hasAudio: true, sizeRate: 1000000 / 8 },
+        { height: 480,  formatId: "480p",  quality: "480p SD", ext: "mp4", hasAudio: true, sizeRate: 500000 / 8 },
+        { height: 360,  formatId: "360p",  quality: "360p Standard", ext: "mp4", hasAudio: true, sizeRate: 300000 / 8 },
       ];
+
+      // ONLY include quality options that DO NOT exceed the creator's published resolution
+      let filteredTiers = allTiers.filter((t) => t.height <= maxHeight);
+      if (filteredTiers.length === 0) {
+        filteredTiers = [{ height: maxHeight, formatId: `${maxHeight}p`, quality: `${maxHeight}p Standard`, ext: "mp4", hasAudio: true, sizeRate: 200000 / 8 }];
+      }
+
+      const formats = filteredTiers.map((t) => ({
+        formatId: t.formatId,
+        quality: t.quality,
+        height: t.height,
+        ext: t.ext,
+        hasAudio: t.hasAudio,
+        sizeBytes: Math.round(effectiveDuration * t.sizeRate),
+      }));
 
       return new Response(
         JSON.stringify({
@@ -248,6 +191,7 @@ Deno.serve(async (req: Request) => {
           author,
           thumbnail,
           lengthSeconds: lengthSeconds || effectiveDuration,
+          maxPublishedQuality: `${maxHeight}p`,
           formats,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -255,7 +199,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ------------------------------------------------------------------
-    // ROUTE: /download - YouTube Video / Audio Download
+    // ROUTE: /download - YouTube Video Download
     // ------------------------------------------------------------------
     if (pathname === "/download" || pathname.endsWith("/download")) {
       const targetUrl = url.searchParams.get("url");
@@ -276,15 +220,13 @@ Deno.serve(async (req: Request) => {
       }
 
       const { title } = await fetchYouTubeDetails(videoId);
-      const isAudio = formatId.includes("mp3") || formatId === "audio";
-      const ext = isAudio ? "mp3" : "mp4";
       const safeTitle = (title || "video").replace(/[\\/:"*?<>|]+/g, "");
 
       return new Response(
         JSON.stringify({
           status: "ready",
           title: safeTitle,
-          ext,
+          ext: "mp4",
           downloadUrl: `https://www.youtube.com/watch?v=${videoId}`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -323,7 +265,6 @@ Deno.serve(async (req: Request) => {
           "viral",
           "official video",
           "hd 1080p",
-          "4k",
           "trending",
           "2026",
         ])
@@ -479,7 +420,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         status: "online",
         service: "OmniTools Supabase Edge Backend",
-        version: "2.3.0",
+        version: "2.4.0",
         timestamp: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
