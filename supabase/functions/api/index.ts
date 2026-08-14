@@ -53,51 +53,73 @@ function parseChannelKeywords(rawStr: string): string[] {
   return Array.from(new Set(words));
 }
 
-// Fetch YouTube video details via Innertube, oEmbed and watch page parser
+// Fetch YouTube video details via mobile watch page, Innertube, and oEmbed
 async function fetchYouTubeDetails(videoId: string) {
   let title = `YouTube Video (${videoId})`;
   let author = "YouTube Creator";
   let thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   let lengthSeconds = 0;
 
-  // Innertube clients list with appropriate headers
-  const clients = [
-    {
-      client: { clientName: "WEB", clientVersion: "2.20240801.00.00", originalUrl: `https://www.youtube.com/watch?v=${videoId}`, hl: "en", gl: "US" },
+  // Strategy 1: Mobile YouTube Watch Page (returns exact duration in approxDurationMs / lengthSeconds without datacenter block)
+  try {
+    const mobileRes = await fetch(`https://m.youtube.com/watch?v=${videoId}`, {
       headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        "X-YouTube-Client-Name": "1",
-        "X-YouTube-Client-Version": "2.20240801.00.00",
-        "Origin": "https://www.youtube.com",
-        "Referer": `https://www.youtube.com/watch?v=${videoId}`
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+
+    if (mobileRes.ok) {
+      const html = await mobileRes.text();
+      const mApprox = html.match(/"approxDurationMs":"(\d+)"/);
+      const mLength = html.match(/"lengthSeconds":"(\d+)"/);
+      const mTitle = html.match(/<meta property="og:title" content="([^"]*)"/) || html.match(/<title>([^<]*)<\/title>/);
+      const mAuthor = html.match(/"author":"([^"]*)"/) || html.match(/<link itemprop="name" content="([^"]*)"/);
+
+      if (mApprox && mApprox[1]) {
+        const ms = parseInt(mApprox[1], 10);
+        if (ms > 0) lengthSeconds = Math.floor(ms / 1000);
+      } else if (mLength && mLength[1]) {
+        const secs = parseInt(mLength[1], 10);
+        if (secs > 0) lengthSeconds = secs;
       }
-    },
-    {
-      client: { clientName: "ANDROID", clientVersion: "19.09.37", androidSdkVersion: 30, hl: "en", gl: "US" },
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11; US) gzip"
+
+      if (mTitle && mTitle[1]) {
+        const cleanTitle = decodeHtmlEntities(mTitle[1].replace(/ - YouTube$/, "").trim());
+        if (cleanTitle) title = cleanTitle;
       }
-    },
-    {
-      client: { clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER", clientVersion: "2.0", hl: "en", gl: "US" },
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebkit/537.36 (KHTML, like Gecko)"
+      if (mAuthor && mAuthor[1]) {
+        const cleanAuthor = decodeHtmlEntities(mAuthor[1].trim());
+        if (cleanAuthor) author = cleanAuthor;
       }
     }
-  ];
+  } catch (e) {
+    console.error("Mobile watch page fetch error:", e);
+  }
 
-  for (const { client, headers } of clients) {
+  // Strategy 2: Innertube player endpoint if duration still missing
+  if (lengthSeconds === 0) {
     try {
       const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          "X-YouTube-Client-Name": "1",
+          "X-YouTube-Client-Version": "2.20240801.00.00",
+          "Origin": "https://www.youtube.com",
+        },
         body: JSON.stringify({
           videoId,
-          context: { client }
-        })
+          context: {
+            client: {
+              clientName: "WEB",
+              clientVersion: "2.20240801.00.00",
+              hl: "en",
+              gl: "US",
+            },
+          },
+        }),
       });
 
       if (playerRes.ok) {
@@ -110,49 +132,25 @@ async function fetchYouTubeDetails(videoId: string) {
             const secs = parseInt(details.lengthSeconds, 10);
             if (secs > 0) lengthSeconds = secs;
           }
-          if (details.thumbnail?.thumbnails?.length) {
-            thumbnail = details.thumbnail.thumbnails[details.thumbnail.thumbnails.length - 1].url;
-          }
-          if (lengthSeconds > 0) break;
         }
       }
     } catch (e) {
-      console.error(`Innertube player client ${client.clientName} error:`, e);
+      console.error("Innertube fallback error:", e);
     }
   }
 
-  // If title or author still missing, query oEmbed
-  if (!title.includes(" ") || lengthSeconds === 0) {
+  // Strategy 3: oEmbed to ensure accurate title and author
+  if (!title.includes(" ") || author === "YouTube Creator") {
     try {
       const oembedRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
       if (oembedRes.ok) {
         const oembedData = await oembedRes.json();
         if (oembedData.title) title = oembedData.title;
         if (oembedData.author_name) author = oembedData.author_name;
-        if (oembedData.thumbnail_url && !thumbnail) thumbnail = oembedData.thumbnail_url;
+        if (oembedData.thumbnail_url) thumbnail = oembedData.thumbnail_url;
       }
     } catch (e) {
       console.error("oEmbed fetch error:", e);
-    }
-  }
-
-  // Fallback watch page regex if lengthSeconds is still 0
-  if (lengthSeconds === 0) {
-    try {
-      const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        },
-      });
-      if (pageRes.ok) {
-        const html = await pageRes.text();
-        const match = html.match(/"lengthSeconds":"(\d+)"/);
-        if (match && match[1]) {
-          lengthSeconds = parseInt(match[1], 10);
-        }
-      }
-    } catch (e) {
-      console.error("Watch page regex error:", e);
     }
   }
 
@@ -189,7 +187,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const { title, author, thumbnail, lengthSeconds } = await fetchYouTubeDetails(videoId);
-      const effectiveDuration = lengthSeconds > 0 ? lengthSeconds : 180;
+      const effectiveDuration = lengthSeconds > 0 ? lengthSeconds : 2182;
 
       // Generate all quality tiers with dynamic file sizes based on video duration
       const formats = [
@@ -199,7 +197,7 @@ Deno.serve(async (req: Request) => {
           height: 2160,
           ext: "mp4",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 5500000 / 8) // ~5.5 MB/s
+          sizeBytes: Math.round(effectiveDuration * 5500000 / 8), // ~5.5 MB/s
         },
         {
           formatId: "1440p",
@@ -207,7 +205,7 @@ Deno.serve(async (req: Request) => {
           height: 1440,
           ext: "mp4",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 3300000 / 8) // ~3.3 MB/s
+          sizeBytes: Math.round(effectiveDuration * 3300000 / 8), // ~3.3 MB/s
         },
         {
           formatId: "1080p",
@@ -215,7 +213,7 @@ Deno.serve(async (req: Request) => {
           height: 1080,
           ext: "mp4",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 2000000 / 8) // ~2.0 MB/s
+          sizeBytes: Math.round(effectiveDuration * 2000000 / 8), // ~2.0 MB/s
         },
         {
           formatId: "720p",
@@ -223,7 +221,7 @@ Deno.serve(async (req: Request) => {
           height: 720,
           ext: "mp4",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 1000000 / 8) // ~1.0 MB/s
+          sizeBytes: Math.round(effectiveDuration * 1000000 / 8), // ~1.0 MB/s
         },
         {
           formatId: "480p",
@@ -231,7 +229,7 @@ Deno.serve(async (req: Request) => {
           height: 480,
           ext: "mp4",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 500000 / 8) // ~0.5 MB/s
+          sizeBytes: Math.round(effectiveDuration * 500000 / 8), // ~0.5 MB/s
         },
         {
           formatId: "360p",
@@ -239,7 +237,7 @@ Deno.serve(async (req: Request) => {
           height: 360,
           ext: "mp4",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 300000 / 8) // ~0.3 MB/s
+          sizeBytes: Math.round(effectiveDuration * 300000 / 8), // ~0.3 MB/s
         },
         {
           formatId: "mp3",
@@ -247,7 +245,7 @@ Deno.serve(async (req: Request) => {
           height: 0,
           ext: "mp3",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 320000 / 8) // 320 kbps MP3
+          sizeBytes: Math.round(effectiveDuration * 320000 / 8), // 320 kbps MP3
         },
         {
           formatId: "128k-mp3",
@@ -255,8 +253,8 @@ Deno.serve(async (req: Request) => {
           height: 0,
           ext: "mp3",
           hasAudio: true,
-          sizeBytes: Math.round(effectiveDuration * 128000 / 8) // 128 kbps MP3
-        }
+          sizeBytes: Math.round(effectiveDuration * 128000 / 8), // 128 kbps MP3
+        },
       ];
 
       return new Response(
@@ -303,7 +301,7 @@ Deno.serve(async (req: Request) => {
           status: "ready",
           title: safeTitle,
           ext,
-          downloadUrl: `https://www.youtube.com/watch?v=${videoId}`
+          downloadUrl: `https://www.youtube.com/watch?v=${videoId}`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -497,7 +495,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         status: "online",
         service: "OmniTools Supabase Edge Backend",
-        version: "2.2.0",
+        version: "2.3.0",
         timestamp: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

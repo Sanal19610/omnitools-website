@@ -597,12 +597,12 @@ async function analyzeYouTubeLink() {
         ytResultBox.classList.remove('hidden');
 
         // Extract metadata
-        const title = realInfo?.title || data?.title || `YouTube Video (${videoId})`;
-        const author = realInfo?.author || data?.author || 'YouTube Creator';
+        const title = data?.title || realInfo?.title || `YouTube Video (${videoId})`;
+        const author = data?.author || realInfo?.author || 'YouTube Creator';
         const thumbnail = data?.thumbnail || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-        const totalSeconds = (realInfo?.seconds && realInfo.seconds > 0)
-            ? realInfo.seconds
-            : ((data?.lengthSeconds && data.lengthSeconds > 0) ? data.lengthSeconds : 180);
+        const totalSeconds = (data?.lengthSeconds && data.lengthSeconds > 0)
+            ? data.lengthSeconds
+            : ((realInfo?.seconds && realInfo.seconds > 0) ? realInfo.seconds : 2182);
 
         ytVideoThumb.src = thumbnail;
         ytVideoThumb.onerror = () => { ytVideoThumb.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`; };
