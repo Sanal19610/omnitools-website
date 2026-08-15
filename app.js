@@ -646,8 +646,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 function getBackendUrl(path) {
-    const cleanPath = path.replace(/^\/api/, '');
-    if (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.functionsUrl) {
+    const envBackendUrl = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_BACKEND_URL)
+        || (typeof window !== 'undefined' && (window.NEXT_PUBLIC_BACKEND_URL || window.ENV?.NEXT_PUBLIC_BACKEND_URL || window.SUPABASE_CONFIG?.NEXT_PUBLIC_BACKEND_URL || window.SUPABASE_CONFIG?.backendUrl))
+        || '';
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    if (envBackendUrl) {
+        const cleanBase = envBackendUrl.replace(/\/+$/, '');
+        const apiPath = (normalizedPath.startsWith('/api/') || normalizedPath === '/api') ? normalizedPath : `/api${normalizedPath}`;
+        return `${cleanBase}${apiPath}`;
+    }
+
+    const cleanPath = normalizedPath.replace(/^\/api/, '');
+    if (typeof window !== 'undefined' && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.functionsUrl) {
         return `${window.SUPABASE_CONFIG.functionsUrl}${cleanPath}`;
     }
     return `https://tcacczhndrefkzntwzmu.supabase.co/functions/v1/api${cleanPath}`;
@@ -734,33 +746,42 @@ async function analyzeYouTubeLink() {
             filteredTiers = [allTiers[allTiers.length - 1]]; // fallback to 360p
         }
 
-        // Build quality dropdown
-        const qualitySelect = document.getElementById('ytQualitySelect');
-        qualitySelect.innerHTML = '';
+        // Populate direct 1-click quality download buttons list
+        const ytQualityList = document.getElementById('ytQualityList');
+        if (ytQualityList) {
+            ytQualityList.innerHTML = '';
+            filteredTiers.forEach(f => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-quality-download';
+                btn.dataset.format = f.formatId;
+                btn.dataset.ext = f.ext;
 
-        filteredTiers.forEach(f => {
-            const opt = document.createElement('option');
-            opt.value = f.formatId;
-            opt.dataset.ext = f.ext;
-            const sizeMB = totalSeconds > 0 ? (totalSeconds * f.ratePerSec) / (1024 * 1024) : 0;
-            const sizeLabel = sizeMB >= 1000
-                ? ` • ~${(sizeMB / 1024).toFixed(2)} GB`
-                : (sizeMB > 0 ? ` • ~${sizeMB.toFixed(1)} MB` : '');
-            opt.textContent = `${f.quality} (.${f.ext})${sizeLabel}`;
-            qualitySelect.appendChild(opt);
-        });
+                const sizeMB = totalSeconds > 0 ? (totalSeconds * f.ratePerSec) / (1024 * 1024) : 0;
+                const sizeLabel = sizeMB >= 1000
+                    ? `~${(sizeMB / 1024).toFixed(2)} GB`
+                    : (sizeMB > 0 ? `~${sizeMB.toFixed(1)} MB` : '');
 
-        // Set default to 1080p or first available option
-        if (qualitySelect.options.length > 0) {
-            const defaultOpt = Array.from(qualitySelect.options).find(o => o.value === '1080p') || qualitySelect.options[0];
-            if (defaultOpt) defaultOpt.selected = true;
+                const badgeClass = f.height >= 2160 ? 'quality-badge-4k' : (f.height >= 720 ? 'quality-badge-hd' : '');
+
+                btn.innerHTML = `
+                    <div class="quality-info-left">
+                        <span class="quality-badge ${badgeClass}">${f.formatId}</span>
+                        <span class="quality-name">${f.quality} (.${f.ext})</span>
+                    </div>
+                    <div class="quality-info-right">
+                        ${sizeLabel ? `<span class="quality-filesize">${sizeLabel}</span>` : ''}
+                        <span class="btn-download-action">⬇️ Download</span>
+                    </div>
+                `;
+
+                btn.addEventListener('click', () => {
+                    downloadYouTubeVideo(url, f.formatId, f.ext, btn);
+                });
+
+                ytQualityList.appendChild(btn);
+            });
         }
-
-        // Update mirror direct links
-        const mirror1 = document.getElementById('ytMirror1');
-        const mirror2 = document.getElementById('ytMirror2');
-        if (mirror1) mirror1.href = `https://yt1s.com.co/en/youtube-to-mp4?q=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`;
-        if (mirror2) mirror2.href = `https://en.y2mate.is/download-youtube/${videoId}`;
 
         showToast('Video loaded successfully! ✅');
     } catch (err) {
@@ -770,197 +791,121 @@ async function analyzeYouTubeLink() {
     }
 }
 
-    if (startDownloadBtn) {
-        startDownloadBtn.addEventListener('click', async () => {
-    const url = startDownloadBtn.dataset.videoUrl;
-    if (!url) {
-        showToast('Please get the video info first!', 'warning');
-        return;
-    }
-    const qualitySelect = document.getElementById('ytQualitySelect');
-    const selectedOption = qualitySelect.options[qualitySelect.selectedIndex];
-    const formatId = selectedOption ? selectedOption.value : '1080p';
-    const ext = selectedOption?.dataset?.ext || 'mp4';
+    // Direct, single-action video download engine
+    async function downloadYouTubeVideo(url, formatId = '1080p', ext = 'mp4', triggerBtn = null) {
+        if (!url) {
+            showToast('Please get the video info first!', 'warning');
+            return;
+        }
 
-    startDownloadBtn.disabled = true;
-    startDownloadBtn.innerHTML = '⏳ Processing Download...';
+        // Disable all quality buttons during active download
+        const allQualityBtns = document.querySelectorAll('.btn-quality-download');
+        allQualityBtns.forEach(b => { b.disabled = true; });
 
-    const ytProgressWrap = document.getElementById('ytProgressWrap');
-    const ytProgressBar = document.getElementById('ytProgressBar');
-    const ytProgressPercent = document.getElementById('ytProgressPercent');
-    const ytProgressStatus = document.getElementById('ytProgressStatus');
+        let originalBtnHtml = '';
+        if (triggerBtn) {
+            originalBtnHtml = triggerBtn.innerHTML;
+            const actionSpan = triggerBtn.querySelector('.btn-download-action');
+            if (actionSpan) actionSpan.innerHTML = '⏳ Downloading...';
+        }
 
-    if (ytProgressWrap) {
-        ytProgressWrap.classList.remove('hidden');
-        ytProgressBar.style.width = '10%';
-        ytProgressPercent.textContent = '10%';
-        ytProgressStatus.textContent = 'Finding best download source...';
-    }
-
-    showToast('Starting download... 📥');
-
-    const videoId = extractYouTubeId(url);
-    const videoTitle = document.getElementById('ytVideoTitle')?.textContent || 'video';
-    const safeTitle = videoTitle.replace(/[\\/:"*?<>|]+/g, '');
-
-    // Extract height from formatId (e.g. "1440p" -> "1440", "2160p" -> "2160")
-    const qualityHeight = formatId.replace('p', '');
-
-    // Strategy 1: Try local backend (has yt-dlp for real downloads)
-    try {
-        const localBackendUrl = `http://localhost:3000/api/download?url=${encodeURIComponent(url)}&format=${encodeURIComponent(formatId)}`;
+        const ytProgressWrap = document.getElementById('ytProgressWrap');
+        const ytProgressBar = document.getElementById('ytProgressBar');
+        const ytProgressPercent = document.getElementById('ytProgressPercent');
+        const ytProgressStatus = document.getElementById('ytProgressStatus');
 
         if (ytProgressWrap) {
-            ytProgressBar.style.width = '20%';
-            ytProgressPercent.textContent = '20%';
-            ytProgressStatus.textContent = 'Connecting to local download server...';
+            ytProgressWrap.classList.remove('hidden');
+            ytProgressBar.style.width = '15%';
+            ytProgressPercent.textContent = '15%';
+            ytProgressStatus.textContent = `Preparing ${formatId} video stream...`;
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const response = await fetch(localBackendUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
+        showToast(`Starting ${formatId} video download... 📥`);
 
-        if (response.ok) {
-            const contentType = response.headers.get('content-type') || '';
-            // If it returns an actual video file (not JSON), download it
-            if (contentType.includes('video') || contentType.includes('octet-stream') || contentType.includes('mp4')) {
+        const videoId = extractYouTubeId(url);
+        const videoTitle = document.getElementById('ytVideoTitle')?.textContent || 'video';
+        const safeTitle = videoTitle.replace(/[\\/:"*?<>|]+/g, '').trim() || `YouTube_${videoId}`;
+
+        // List of download endpoints to try (configured NEXT_PUBLIC_BACKEND_URL / cloud backend + relative path)
+        const downloadApiPath = `/api/download?url=${encodeURIComponent(url)}&format=${encodeURIComponent(formatId)}`;
+        const backendEndpoints = [
+            getBackendUrl(downloadApiPath),
+            downloadApiPath
+        ];
+
+        let downloadSuccess = false;
+
+        for (const endpoint of backendEndpoints) {
+            try {
                 if (ytProgressWrap) {
-                    ytProgressBar.style.width = '50%';
-                    ytProgressPercent.textContent = '50%';
-                    ytProgressStatus.textContent = 'Downloading video from local server...';
+                    ytProgressBar.style.width = '35%';
+                    ytProgressPercent.textContent = '35%';
+                    ytProgressStatus.textContent = 'Connecting to download engine...';
                 }
 
-                const blob = await response.blob();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 90000);
+                const response = await fetch(endpoint, { signal: controller.signal });
+                clearTimeout(timeoutId);
 
-                if (ytProgressWrap) {
-                    ytProgressBar.style.width = '100%';
-                    ytProgressPercent.textContent = '100%';
-                    ytProgressStatus.textContent = 'Download complete!';
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('video') || contentType.includes('octet-stream') || contentType.includes('mp4')) {
+                        if (ytProgressWrap) {
+                            ytProgressBar.style.width = '75%';
+                            ytProgressPercent.textContent = '75%';
+                            ytProgressStatus.textContent = 'Transferring file to your device...';
+                        }
+
+                        const blob = await response.blob();
+
+                        if (ytProgressWrap) {
+                            ytProgressBar.style.width = '100%';
+                            ytProgressPercent.textContent = '100%';
+                            ytProgressStatus.textContent = 'Download complete!';
+                        }
+
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = `${safeTitle}_${formatId}.${ext}`;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+
+                        setTimeout(() => {
+                            window.URL.revokeObjectURL(blobUrl);
+                            if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
+                            allQualityBtns.forEach(b => { b.disabled = false; });
+                            if (triggerBtn && originalBtnHtml) triggerBtn.innerHTML = originalBtnHtml;
+                            showToast('Video downloaded successfully! 🎉');
+                        }, 1000);
+
+                        downloadSuccess = true;
+                        break;
+                    }
                 }
-
-                const blobUrl = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = `${safeTitle}.${ext}`;
-                link.style.display = 'none';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                setTimeout(() => {
-                    window.URL.revokeObjectURL(blobUrl);
-                    if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
-                    startDownloadBtn.disabled = false;
-                    startDownloadBtn.innerHTML = '⬇️ Download File Now';
-                    showToast('Download complete! 🎉');
-                }, 1000);
-                return;
+            } catch (e) {
+                console.log(`Backend endpoint ${endpoint} unavailable:`, e.message);
             }
         }
-    } catch (e) {
-        console.log('Local backend not available, trying online services...');
-    }
 
-    // Strategy 2: Try Cobalt API instances for direct download
-    const cobaltInstances = [
-        'https://api.cobalt.tools',
-        'https://cobalt-api.kwiatekmiki.com',
-        'https://cobalt.api.timelessnesses.me'
-    ];
-
-    for (const instance of cobaltInstances) {
-        try {
+        if (!downloadSuccess) {
             if (ytProgressWrap) {
-                ytProgressBar.style.width = '30%';
-                ytProgressPercent.textContent = '30%';
-                ytProgressStatus.textContent = 'Connecting to download service...';
+                ytProgressBar.style.width = '100%';
+                ytProgressPercent.textContent = 'Failed';
+                ytProgressStatus.textContent = 'Download server offline. Please start local backend.';
             }
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-            const cobaltRes = await fetch(instance, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    url: `https://www.youtube.com/watch?v=${videoId}`,
-                    videoQuality: qualityHeight,
-                    downloadMode: 'auto',
-                    filenameStyle: 'pretty'
-                }),
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            if (cobaltRes.ok) {
-                const cobaltData = await cobaltRes.json();
-                if (cobaltData.url) {
-                    if (ytProgressWrap) {
-                        ytProgressBar.style.width = '60%';
-                        ytProgressPercent.textContent = '60%';
-                        ytProgressStatus.textContent = 'Download link found! Starting download...';
-                    }
-
-                    // Download via the cobalt tunnel URL
-                    const link = document.createElement('a');
-                    link.href = cobaltData.url;
-                    link.download = `${safeTitle}.${ext}`;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.style.display = 'none';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-
-                    if (ytProgressWrap) {
-                        ytProgressBar.style.width = '100%';
-                        ytProgressPercent.textContent = '100%';
-                        ytProgressStatus.textContent = 'Download started!';
-                    }
-
-                    setTimeout(() => {
-                        if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
-                        startDownloadBtn.disabled = false;
-                        startDownloadBtn.innerHTML = '⬇️ Download File Now';
-                        showToast('Download started! Check your browser downloads. 🎉');
-                    }, 2000);
-                    return;
-                }
-            }
-        } catch (e) {
-            console.log(`Cobalt instance ${instance} failed:`, e.message);
+            showToast('Could not download. Please make sure the local server is running (backend/server.js).', 'warning');
+            setTimeout(() => {
+                if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
+                allQualityBtns.forEach(b => { b.disabled = false; });
+                if (triggerBtn && originalBtnHtml) triggerBtn.innerHTML = originalBtnHtml;
+            }, 3000);
         }
     }
-
-    // Strategy 3: Open fast, working high-quality downloader mirror (yt1s / y2mate)
-    if (ytProgressWrap) {
-        ytProgressBar.style.width = '80%';
-        ytProgressPercent.textContent = '80%';
-        ytProgressStatus.textContent = 'Opening high-speed download mirror...';
-    }
-
-    // Use fast, non-blocked direct downloader mirrors
-    const downloadPageUrl = `https://yt1s.com.co/en/youtube-to-mp4?q=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`;
-    window.open(downloadPageUrl, '_blank');
-
-    setTimeout(() => {
-        if (ytProgressWrap) {
-            ytProgressBar.style.width = '100%';
-            ytProgressPercent.textContent = '100%';
-            ytProgressStatus.textContent = 'Download ready in new tab!';
-        }
-        setTimeout(() => {
-            if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
-            startDownloadBtn.disabled = false;
-            startDownloadBtn.innerHTML = '⬇️ Download File Now';
-            showToast('Download tab opened! Click your desired quality to save. 📥', 'info');
-        }, 1500);
-    }, 1000);
-});
-}
 
     // ------------------------------------------------------------------
     // TOOL 1B: Instagram Reel Downloader Engine
@@ -1164,8 +1109,42 @@ async function analyzeYouTubeLink() {
         thumbMaxResImg.src = maxResUrl;
         thumbHqImg.src = hqUrl;
 
-        dlMaxResLink.href = maxResUrl;
-        dlHqLink.href = hqUrl;
+        async function downloadDirectImage(imageUrl, filename) {
+            try {
+                showToast('Downloading thumbnail... 🖼️');
+                const res = await fetch(imageUrl);
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(blobUrl);
+                showToast('Thumbnail saved! ✅');
+            } catch (e) {
+                const a = document.createElement('a');
+                a.href = imageUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+        }
+
+        if (dlMaxResLink) {
+            dlMaxResLink.onclick = (e) => {
+                e.preventDefault();
+                downloadDirectImage(maxResUrl, `YouTube_Thumbnail_1080p_${videoId}.jpg`);
+            };
+        }
+        if (dlHqLink) {
+            dlHqLink.onclick = (e) => {
+                e.preventDefault();
+                downloadDirectImage(hqUrl, `YouTube_Thumbnail_HQ_${videoId}.jpg`);
+            };
+        }
 
         const resultsArea = document.getElementById('thumbResultsArea');
         if (resultsArea) resultsArea.classList.remove('hidden');
