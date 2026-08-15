@@ -526,15 +526,16 @@
                                 <p class="channel-info" id="ytChannelInfo">Channel: YouTube Creator</p>
 
                                 <div class="download-options-group">
-                                    <div class="form-group">
-                                        <label for="ytQualitySelect">Select Quality & Format:</label>
+                                    <div class="form-group mb-3">
+                                        <label for="ytQualitySelect" style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; display: block;">Select Quality:</label>
                                         <select id="ytQualitySelect" class="form-control">
-                                            <option value="2160p">4K Ultra HD (2160p) (.mp4)</option>
-                                            <option value="1440p">2K Quad HD (1440p) (.mp4)</option>
+                                            <option value="2160p">4K Ultra HD (2160p .mp4)</option>
+                                            <option value="1440p">2K Quad HD (1440p .mp4)</option>
                                             <option value="1080p" selected>1080p Full HD (.mp4)</option>
                                             <option value="720p">720p HD (.mp4)</option>
                                             <option value="480p">480p SD (.mp4)</option>
                                             <option value="360p">360p Standard (.mp4)</option>
+                                            <option value="mp3">Audio Only (.mp3)</option>
                                         </select>
                                     </div>
 
@@ -542,12 +543,11 @@
                                         ⬇️ Download File Now
                                     </button>
 
-                                    <!-- Alternative Download Mirrors -->
-                                    <div class="download-mirrors-wrap" id="ytMirrorsWrap" style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-                                        <span style="font-size: 0.8rem; color: #94a3b8;">Direct Mirrors:</span>
-                                        <a href="#" id="ytMirror1" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="padding: 4px 10px; font-size: 0.78rem; text-decoration: none; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; background: rgba(255,255,255,0.04);">⚡ Server 1 (YT1s)</a>
-                                        <a href="#" id="ytMirror2" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="padding: 4px 10px; font-size: 0.78rem; text-decoration: none; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; background: rgba(255,255,255,0.04);">⚡ Server 2 (Y2Mate)</a>
+                                    <div class="quality-download-list mt-3" id="ytQualityList">
+                                        <!-- Dynamic 1-Click Quality Download Buttons -->
                                     </div>
+
+
 
                                     <!-- Progress Bar -->
                                     <div class="download-progress-wrap hidden" id="ytProgressWrap">
@@ -666,7 +666,7 @@
                                 <img id="thumbMaxResImg" src="" alt="1080p Thumbnail">
                             </div>
                             <div class="thumb-card-actions">
-                                <a id="dlMaxResLink" href="#" download="maxres-thumbnail.jpg" target="_blank" class="btn btn-primary btn-sm">Download 1080p HD</a>
+                                <a id="dlMaxResLink" href="#" download="maxres-thumbnail.jpg" class="btn btn-primary btn-sm">Download 1080p HD</a>
                                 <button class="btn btn-outline btn-sm copy-url-btn" data-url-target="thumbMaxResImg">Copy URL</button>
                             </div>
                         </div>
@@ -680,7 +680,7 @@
                                 <img id="thumbHqImg" src="" alt="HQ Thumbnail">
                             </div>
                             <div class="thumb-card-actions">
-                                <a id="dlHqLink" href="#" download="hq-thumbnail.jpg" target="_blank" class="btn btn-primary btn-sm">Download HQ</a>
+                                <a id="dlHqLink" href="#" download="hq-thumbnail.jpg" class="btn btn-primary btn-sm">Download HQ</a>
                                 <button class="btn btn-outline btn-sm copy-url-btn" data-url-target="thumbHqImg">Copy URL</button>
                             </div>
                         </div>

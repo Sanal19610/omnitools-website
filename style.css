@@ -2153,6 +2153,103 @@ body.dark-mode .no-keywords-notice {
     font-weight: 600;
 }
 
+/* Direct Quality Download Actions */
+.quality-download-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+    margin-bottom: 14px;
+    width: 100%;
+}
+
+.btn-quality-download {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.btn-quality-download:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-solid);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+body.dark-mode .btn-quality-download:hover {
+    background: rgba(99, 102, 241, 0.18);
+}
+
+.btn-quality-download:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-quality-download .quality-info-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-quality-download .quality-badge {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 4px;
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--primary-solid);
+}
+
+.btn-quality-download .quality-badge-4k {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.btn-quality-download .quality-badge-hd {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.btn-quality-download .quality-name {
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.btn-quality-download .quality-info-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-quality-download .quality-filesize {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.btn-quality-download .btn-download-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    background: var(--primary-gradient);
+    color: #ffffff;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+}
+
 /* Responsive Queries */
 @media (max-width: 992px) {
     .dashboard-body {

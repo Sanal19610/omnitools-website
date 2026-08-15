@@ -723,7 +723,9 @@ async function analyzeYouTubeLink() {
         }
 
         // Remember this URL for downloading
-        startDownloadBtn.dataset.videoUrl = url;
+        if (startDownloadBtn) {
+            startDownloadBtn.dataset.videoUrl = url;
+        }
 
         // Determine max published resolution from browser detection or API
         const browserMaxHeight = (realInfo?.maxHeight && realInfo.maxHeight > 0) ? realInfo.maxHeight : 0;
@@ -744,6 +746,23 @@ async function analyzeYouTubeLink() {
         let filteredTiers = allTiers.filter(t => t.height <= maxHeight);
         if (filteredTiers.length === 0) {
             filteredTiers = [allTiers[allTiers.length - 1]]; // fallback to 360p
+        }
+
+        // Populate dropdown select if present
+        const ytQualitySelect = document.getElementById('ytQualitySelect');
+        if (ytQualitySelect) {
+            ytQualitySelect.innerHTML = '';
+            filteredTiers.forEach((f, idx) => {
+                const opt = document.createElement('option');
+                opt.value = f.formatId;
+                opt.textContent = `${f.quality} (.${f.ext})`;
+                if (idx === 0) opt.selected = true;
+                ytQualitySelect.appendChild(opt);
+            });
+            const mp3Opt = document.createElement('option');
+            mp3Opt.value = 'mp3';
+            mp3Opt.textContent = 'Audio Only (.mp3)';
+            ytQualitySelect.appendChild(mp3Opt);
         }
 
         // Populate direct 1-click quality download buttons list
@@ -798,15 +817,22 @@ async function analyzeYouTubeLink() {
             return;
         }
 
-        // Disable all quality buttons during active download
+        // Disable all quality buttons and main button during active download
         const allQualityBtns = document.querySelectorAll('.btn-quality-download');
         allQualityBtns.forEach(b => { b.disabled = true; });
+        if (startDownloadBtn) {
+            startDownloadBtn.disabled = true;
+        }
 
         let originalBtnHtml = '';
         if (triggerBtn) {
             originalBtnHtml = triggerBtn.innerHTML;
             const actionSpan = triggerBtn.querySelector('.btn-download-action');
-            if (actionSpan) actionSpan.innerHTML = '⏳ Downloading...';
+            if (actionSpan) {
+                actionSpan.innerHTML = '⏳ Downloading...';
+            } else {
+                triggerBtn.innerHTML = '⏳ Processing Download...';
+            }
         }
 
         const ytProgressWrap = document.getElementById('ytProgressWrap');
@@ -851,7 +877,7 @@ async function analyzeYouTubeLink() {
 
                 if (response.ok) {
                     const contentType = response.headers.get('content-type') || '';
-                    if (contentType.includes('video') || contentType.includes('octet-stream') || contentType.includes('mp4')) {
+                    if (contentType.includes('video') || contentType.includes('octet-stream') || contentType.includes('mp4') || contentType.includes('audio') || contentType.includes('mpeg')) {
                         if (ytProgressWrap) {
                             ytProgressBar.style.width = '75%';
                             ytProgressPercent.textContent = '75%';
@@ -879,6 +905,10 @@ async function analyzeYouTubeLink() {
                             window.URL.revokeObjectURL(blobUrl);
                             if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
                             allQualityBtns.forEach(b => { b.disabled = false; });
+                            if (startDownloadBtn) {
+                                startDownloadBtn.disabled = false;
+                                startDownloadBtn.innerHTML = '⬇️ Download File Now';
+                            }
                             if (triggerBtn && originalBtnHtml) triggerBtn.innerHTML = originalBtnHtml;
                             showToast('Video downloaded successfully! 🎉');
                         }, 1000);
@@ -896,15 +926,35 @@ async function analyzeYouTubeLink() {
             if (ytProgressWrap) {
                 ytProgressBar.style.width = '100%';
                 ytProgressPercent.textContent = 'Failed';
-                ytProgressStatus.textContent = 'Download server offline. Please start local backend.';
+                ytProgressStatus.textContent = 'Download server offline or request failed.';
             }
-            showToast('Could not download. Please make sure the local server is running (backend/server.js).', 'warning');
+            showToast('Could not download. Please check backend server status.', 'warning');
             setTimeout(() => {
                 if (ytProgressWrap) ytProgressWrap.classList.add('hidden');
                 allQualityBtns.forEach(b => { b.disabled = false; });
+                if (startDownloadBtn) {
+                    startDownloadBtn.disabled = false;
+                    startDownloadBtn.innerHTML = '⬇️ Download File Now';
+                }
                 if (triggerBtn && originalBtnHtml) triggerBtn.innerHTML = originalBtnHtml;
             }, 3000);
         }
+    }
+
+    if (startDownloadBtn) {
+        startDownloadBtn.addEventListener('click', async () => {
+            const url = (startDownloadBtn.dataset && startDownloadBtn.dataset.videoUrl) || ytDownloaderUrl.value.trim();
+            if (!url) {
+                showToast('Please get the video info first! 🔗', 'warning');
+                return;
+            }
+
+            const qualitySelect = document.getElementById('ytQualitySelect');
+            const formatId = qualitySelect ? qualitySelect.value : '1080p';
+            const ext = formatId === 'mp3' ? 'mp3' : 'mp4';
+
+            await downloadYouTubeVideo(url, formatId, ext, startDownloadBtn);
+        });
     }
 
     // ------------------------------------------------------------------
