@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function getBackendUrl(path) {
     const envBackendUrl = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_BACKEND_URL)
         || (typeof window !== 'undefined' && (window.NEXT_PUBLIC_BACKEND_URL || window.ENV?.NEXT_PUBLIC_BACKEND_URL || window.SUPABASE_CONFIG?.NEXT_PUBLIC_BACKEND_URL || window.SUPABASE_CONFIG?.backendUrl))
-        || '';
+        || 'https://omnitools-backend.onrender.com';
 
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
@@ -853,11 +853,10 @@ async function analyzeYouTubeLink() {
         const videoTitle = document.getElementById('ytVideoTitle')?.textContent || 'video';
         const safeTitle = videoTitle.replace(/[\\/:"*?<>|]+/g, '').trim() || `YouTube_${videoId}`;
 
-        // List of download endpoints to try (configured NEXT_PUBLIC_BACKEND_URL / cloud backend + relative path)
+        // Download endpoint targeting configured backend (Render / local)
         const downloadApiPath = `/api/download?url=${encodeURIComponent(url)}&format=${encodeURIComponent(formatId)}`;
         const backendEndpoints = [
-            getBackendUrl(downloadApiPath),
-            downloadApiPath
+            getBackendUrl(downloadApiPath)
         ];
 
         let downloadSuccess = false;
