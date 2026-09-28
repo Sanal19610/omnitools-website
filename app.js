@@ -38,12 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
             iconBg: 'tool-icon-amber'
         },
 
-        'channel-extractor': {
-            title: 'Channel Keyword & Info Extractor',
-            tag: 'Channel & SEO',
-            iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-            iconBg: 'tool-icon-purple'
-        },
         'ig-downloader': {
             title: 'Instagram Reel Downloader',
             tag: 'Video & Media',
@@ -127,15 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
         [
             'ytVideoTitle', 'ytChannelInfo', 'ytProgressPercent', 'ytProgressStatus',
             'igVideoTitle', 'igAuthorInfo', 'igHashtags', 'igUploadDate', 'igLikesCount', 'igCommentsCount', 'igProgressPercent', 'igProgressStatus',
-            'metaTitleDisplay', 'metaDescDisplay', 'tagCountNum',
-            'channelNameDisplay', 'channelVanityDisplay', 'channelSubText', 'channelTagCountNum', 'channelDescDisplay', 'channelUrlDisplay'
+            'metaTitleDisplay', 'metaDescDisplay', 'tagCountNum'
         ].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.textContent = '';
         });
 
         // Clear innerHTML containers
-        ['metaTagsCloud', 'channelTagsCloud'].forEach(id => {
+        ['metaTagsCloud'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerHTML = '';
         });
@@ -210,11 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const metaInput = document.getElementById('ytMetaUrl');
             if (metaInput && metaInput.value.trim().length > 0) {
                 processYouTubeMetadata();
-            }
-        } else if (toolKey === 'channel-extractor') {
-            const chInput = document.getElementById('channelExtractorUrl');
-            if (chInput && chInput.value.trim().length > 0) {
-                processChannelExtraction();
             }
         }
     }
@@ -451,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupInputClear('igDownloaderUrl', 'clearIgDownloaderUrl');
     setupInputClear('ytThumbUrl', 'clearYtThumbUrl');
     setupInputClear('ytMetaUrl', 'clearYtMetaUrl');
-    setupInputClear('channelExtractorUrl', 'clearChannelExtractorUrl');
     setupInputClear('ttsTextInput', 'clearTtsTextBtn');
 
 
@@ -1313,149 +1300,6 @@ async function analyzeYouTubeLink() {
         });
     }
 
-    // ------------------------------------------------------------------
-    // TOOL 2C: Channel Keyword & Info Extractor Engine
-    // ------------------------------------------------------------------
-    const channelExtractorUrl = document.getElementById('channelExtractorUrl');
-    const extractChannelInfoBtn = document.getElementById('extractChannelInfoBtn');
-    const channelInfoLoader = document.getElementById('channelInfoLoader');
-    const channelResultsArea = document.getElementById('channelResultsArea');
-    const channelAvatar = document.getElementById('channelAvatar');
-    const channelNameDisplay = document.getElementById('channelNameDisplay');
-    const channelVanityDisplay = document.getElementById('channelVanityDisplay');
-    const channelSubText = document.getElementById('channelSubText');
-    const channelTagsCloud = document.getElementById('channelTagsCloud');
-    const channelTagCountNum = document.getElementById('channelTagCountNum');
-    const channelDescDisplay = document.getElementById('channelDescDisplay');
-    const channelUrlDisplay = document.getElementById('channelUrlDisplay');
-    const copyChannelTagsBtn = document.getElementById('copyChannelTagsBtn');
-    const copyChannelDescBtn = document.getElementById('copyChannelDescBtn');
-    const copyChannelUrlBtn = document.getElementById('copyChannelUrlBtn');
-
-    if (extractChannelInfoBtn) {
-        extractChannelInfoBtn.addEventListener('click', processChannelExtraction);
-    }
-
-    function isChannelUrl(url) {
-        // Matches @handle, /channel/, /c/, /user/ patterns
-        return /\/@[^/]+/.test(url) || /\/channel\//.test(url) || /\/c\//.test(url) || /\/user\//.test(url);
-    }
-
-    async function resolveChannelUrl(url) {
-        // If it looks like a video URL, resolve the channel via the backend metadata API
-        if (!isChannelUrl(url) && (url.includes('watch?v=') || url.includes('youtu.be/') || url.includes('/shorts/'))) {
-            try {
-                const response = await fetch(getBackendUrl(`/api/metadata?url=${encodeURIComponent(url)}`));
-                const data = await response.json();
-                if (data.channelUrl) {
-                    return data.channelUrl;
-                }
-            } catch (err) {
-                console.error('Could not resolve channel from video URL:', err);
-            }
-        }
-        return url;
-    }
-
-    async function processChannelExtraction() {
-        let url = channelExtractorUrl.value.trim();
-        if (!url) {
-            showToast('Please paste a YouTube channel or video URL! 🔍', 'warning');
-            channelExtractorUrl.focus();
-            return;
-        }
-
-        channelResultsArea.classList.add('hidden');
-        channelInfoLoader.classList.remove('hidden');
-
-        try {
-            // Auto-resolve video URLs to channel URLs
-            const resolvedUrl = await resolveChannelUrl(url);
-
-            const response = await fetch(getBackendUrl(`/api/channel-info?channelUrl=${encodeURIComponent(resolvedUrl)}`));
-            const data = await response.json();
-
-            channelInfoLoader.classList.add('hidden');
-
-            if (!response.ok || data.error) {
-                showToast(data.error || 'Could not fetch channel info. Check the URL and try again.', 'warning');
-                return;
-            }
-
-            channelResultsArea.classList.remove('hidden');
-
-            // Channel Avatar
-            if (data.avatar) {
-                channelAvatar.src = data.avatar;
-                channelAvatar.style.display = 'block';
-            } else {
-                channelAvatar.style.display = 'none';
-            }
-
-            // Channel Name
-            channelNameDisplay.textContent = data.channelName || 'Unknown Channel';
-
-            // Vanity URL
-            if (data.vanityUrl) {
-                channelVanityDisplay.textContent = data.vanityUrl;
-                channelVanityDisplay.style.display = 'inline';
-            } else {
-                channelVanityDisplay.style.display = 'none';
-            }
-
-            // Subscriber Count
-            channelSubText.textContent = data.subscriberCount || 'N/A';
-
-            // Channel Keywords Cloud
-            const keywords = data.keywords || [];
-            channelTagCountNum.textContent = keywords.length;
-            if (keywords.length > 0) {
-                channelTagsCloud.innerHTML = keywords.map(tag => `<span class="tag-pill">#${tag}</span>`).join('');
-            } else {
-                channelTagsCloud.innerHTML = '<div class="no-keywords-notice"><span>⚠️</span> <span>No keywords set on this YouTube channel.</span></div>';
-            }
-
-            // Channel Description
-            channelDescDisplay.textContent = data.channelDescription || 'No description available.';
-
-            // Channel URL
-            channelUrlDisplay.textContent = data.channelUrl || resolvedUrl;
-
-            showToast('Channel info extracted successfully! 🔍');
-
-        } catch (err) {
-            channelInfoLoader.classList.add('hidden');
-            showToast('Could not connect to the backend server. Is it running?', 'warning');
-            console.error(err);
-        }
-    }
-
-    if (copyChannelTagsBtn) {
-        copyChannelTagsBtn.addEventListener('click', () => {
-            const tagElements = channelTagsCloud ? channelTagsCloud.querySelectorAll('.tag-pill') : [];
-            if (tagElements.length === 0) {
-                showToast('No keywords on this channel to copy! ⚠️', 'warning');
-                return;
-            }
-            const tagsList = Array.from(tagElements).map(el => el.textContent.replace(/^#/, '')).join(', ');
-            navigator.clipboard.writeText(tagsList);
-            showToast('All Channel Tags copied to clipboard! 🏷️');
-        });
-    }
-
-    if (copyChannelDescBtn) {
-        copyChannelDescBtn.addEventListener('click', () => {
-            if (channelDescDisplay) navigator.clipboard.writeText(channelDescDisplay.textContent);
-            showToast('Channel Description copied to clipboard! 📝');
-        });
-    }
-
-    if (copyChannelUrlBtn) {
-        copyChannelUrlBtn.addEventListener('click', () => {
-            if (channelUrlDisplay) navigator.clipboard.writeText(channelUrlDisplay.textContent);
-            showToast('Channel URL copied to clipboard! 🔗');
-        });
-    }
 
     // ------------------------------------------------------------------
     // TOOL 3: AI Voice & Hindi Conversation Synthesizer

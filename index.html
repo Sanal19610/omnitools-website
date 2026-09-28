@@ -125,10 +125,6 @@
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                                     Thumbnail Extractor
                                 </a>
-                                <a href="#channel-extractor-tool" class="dash-nav-item tool-quick-link" data-tool="channel-extractor">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                    Channel Extractor
-                                </a>
                                 <a href="#audio-generator-tool" class="dash-nav-item tool-quick-link" data-tool="audio-generator">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                                     AI Voice Synthesizer
@@ -303,24 +299,6 @@
                         <button class="btn btn-outline launch-tool-btn" data-tool="yt-metadata">Open Tool →</button>
                     </div>
 
-                    <!-- Tool 2C: Channel Keyword & Info Extractor -->
-                    <div class="tool-card" data-category="video" data-latest="true" data-name="youtube channel keywords tags description extractor seo info subscriber new latest">
-                        <div class="tool-card-badges">
-                            <span class="tool-card-badge badge-new-star">⭐ NEW ✨</span>
-                            <span class="tool-card-badge badge-purple">Channel SEO</span>
-                        </div>
-                        <div class="tool-icon-wrapper tool-icon-purple">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        </div>
-                        <h3 class="tool-title">Channel Keyword & Info Extractor</h3>
-                        <p class="tool-description">Extract YouTube channel keywords, description, subscriber count, and SEO tags from any channel or video URL with 1-click copying.</p>
-                        <div class="tool-meta">
-                            <span class="meta-tag meta-tag-new">⭐ New Tool</span>
-                            <span class="meta-tag">Channel SEO</span>
-                            <span class="meta-tag">Keywords</span>
-                        </div>
-                        <button class="btn btn-outline launch-tool-btn" data-tool="channel-extractor">Open Tool →</button>
-                    </div>
 
                     <!-- Tool 2D: Instagram Reel Downloader -->
                     <div class="tool-card" data-category="video" data-latest="true" data-name="instagram reel video downloader insta reels ig mp4 mp3 audio 1080p hd new latest">
@@ -739,74 +717,6 @@
                     </div>
                 </div>
 
-                <!-- TOOL WORKSPACE 2C: Channel Keyword & Info Extractor -->
-                <div class="tool-workspace hidden" id="workspace-channel-extractor">
-                    <div class="input-hero-group">
-                        <label for="channelExtractorUrl">Enter YouTube Channel URL or Video URL:</label>
-                        <div class="input-with-button">
-                            <div class="input-clear-wrapper">
-                                <input type="text" id="channelExtractorUrl" placeholder="Paste channel URL (e.g. https://youtube.com/@ChannelName) or video URL..." value="">
-                                <button type="button" class="input-clear-btn hidden" id="clearChannelExtractorUrl" title="Clear link (1-click)">✕</button>
-                            </div>
-                            <button class="btn btn-primary" id="extractChannelInfoBtn">Extract Channel Info 🔍</button>
-                        </div>
-                    </div>
-
-                    <!-- Loader State -->
-                    <div class="tool-loader hidden" id="channelInfoLoader">
-                        <div class="spinner"></div>
-                        <p>Scraping YouTube channel data & keywords...</p>
-                    </div>
-
-                    <!-- Result Container -->
-                    <div class="channel-results-container hidden" id="channelResultsArea">
-
-                        <!-- Channel Header Card -->
-                        <div class="channel-header-card">
-                            <img class="channel-avatar" id="channelAvatar" src="" alt="Channel Avatar">
-                            <div class="channel-header-info">
-                                <h3 id="channelNameDisplay">Channel Name</h3>
-                                <span class="channel-vanity" id="channelVanityDisplay"></span>
-                                <div class="channel-stats-row">
-                                    <span class="channel-stat-badge" id="channelSubCount">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                        <span id="channelSubText">—</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Channel Keywords Box -->
-                        <div class="meta-card-box mt-3">
-                            <div class="meta-card-header">
-                                <h3>🏷️ Channel Keywords & SEO Tags (<span id="channelTagCountNum">0</span> Tags)</h3>
-                                <button class="btn btn-primary btn-sm" id="copyChannelTagsBtn">Copy All Tags 🏷️</button>
-                            </div>
-                            <div class="tags-cloud" id="channelTagsCloud">
-                                <!-- Tags pills inserted via JS -->
-                            </div>
-                        </div>
-
-                        <!-- Channel Description Box -->
-                        <div class="meta-card-box mt-3">
-                            <div class="meta-card-header">
-                                <h3>📝 Channel Description</h3>
-                                <button class="btn btn-outline btn-sm" id="copyChannelDescBtn">Copy Description 📋</button>
-                            </div>
-                            <pre class="meta-desc-box" id="channelDescDisplay"></pre>
-                        </div>
-
-                        <!-- Channel URL Box -->
-                        <div class="meta-card-box mt-3">
-                            <div class="meta-card-header">
-                                <h3>🔗 Channel URL</h3>
-                                <button class="btn btn-outline btn-sm" id="copyChannelUrlBtn">Copy URL 📋</button>
-                            </div>
-                            <div class="meta-content-text" id="channelUrlDisplay"></div>
-                        </div>
-
-                    </div>
-                </div>
 
                 <!-- TOOL WORKSPACE 3: AI Voice Synthesizer -->
                 <div class="tool-workspace hidden" id="workspace-audio-generator">
@@ -1046,9 +956,7 @@
             <div class="footer-links">
                 <div>
                     <h4>Tools</h4>
-                    <a href="#" class="tool-quick-link" data-tool="yt-downloader">YT Downloader</a>
                     <a href="#" class="tool-quick-link" data-tool="yt-thumbnail">Thumbnail Extractor</a>
-                    <a href="#" class="tool-quick-link" data-tool="channel-extractor">Channel Extractor</a>
                     <a href="#" class="tool-quick-link" data-tool="audio-generator">AI Voice Synthesizer</a>
                     <a href="#" class="tool-quick-link" data-tool="ig-downloader">Instagram Reels</a>
                     <a href="#" class="tool-quick-link" data-tool="yt-downloader" style="opacity: 0.75;">YT Downloader (Soon)</a>
