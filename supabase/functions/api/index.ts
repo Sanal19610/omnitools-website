@@ -61,6 +61,41 @@ async function fetchYouTubeDetails(videoId: string) {
   let lengthSeconds = 0;
   let maxHeight = 0;
   const availableQualities: string[] = [];
+  // Strategy 0: YouTube Data API v3 (Server-only secret, never exposed to browser or logged)
+  const serverApiKey = typeof Deno !== "undefined" && Deno.env?.get?.("YOUTUBE_API_KEY");
+  if (serverApiKey) {
+    try {
+      const apiRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(videoId)}&key=${serverApiKey}`
+      );
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        if (apiData.items && apiData.items.length > 0) {
+          const item = apiData.items[0];
+          const snippet = item.snippet || {};
+          const contentDetails = item.contentDetails || {};
+          if (snippet.title) title = snippet.title;
+          if (snippet.channelTitle) author = snippet.channelTitle;
+          if (snippet.thumbnails?.maxres?.url) {
+            thumbnail = snippet.thumbnails.maxres.url;
+            maxHeight = 1080;
+          } else if (snippet.thumbnails?.high?.url) {
+            thumbnail = snippet.thumbnails.high.url;
+            maxHeight = 720;
+          }
+          const m = (contentDetails.duration || "").match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+          if (m) {
+            const h = parseInt(m[1] || "0", 10);
+            const min = parseInt(m[2] || "0", 10);
+            const s = parseInt(m[3] || "0", 10);
+            lengthSeconds = h * 3600 + min * 60 + s;
+          }
+        }
+      }
+    } catch (_) {
+      // Gracefully continue to fallback strategies
+    }
+  }
 
   // Strategy 1: Mobile YouTube Watch Page
   try {
