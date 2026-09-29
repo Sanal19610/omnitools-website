@@ -2658,16 +2658,36 @@ async function analyzeYouTubeLink() {
 
                 console.log(`[FFmpeg Convert] Starting transcode ratio=${selectedVideoRatio} mode=${selectedVideoMode} filter="${filterStr}"`);
 
-                // Execute transcode with ultra-fast preset
-                const exitCode = await ffmpeg.exec([
+                // Execute transcode with ultra-fast preset to speed up encoding in browser WebAssembly.
+                // Adjust CRF value (28 for MP4/H.264) to slightly reduce default quality and compensate
+                // so output file sizes do not bloat from ultrafast compression settings.
+                const crfValue = outFormat === 'webm' ? '30' : '28';
+                const execArgs = [
                     '-i', inputName,
                     '-vf', filterStr,
-                    '-c:v', 'libx264',
-                    '-preset', 'ultrafast',
-                    '-crf', '26',
-                    '-c:a', 'copy',
-                    outputName
-                ]);
+                ];
+
+                if (outFormat === 'webm') {
+                    execArgs.push(
+                        '-c:v', 'libvpx',
+                        '-crf', crfValue,
+                        '-b:v', '0',
+                        '-deadline', 'realtime',
+                        '-cpu-used', '8',
+                        '-c:a', 'copy',
+                        outputName
+                    );
+                } else {
+                    execArgs.push(
+                        '-c:v', 'libx264',
+                        '-preset', 'ultrafast',
+                        '-crf', crfValue,
+                        '-c:a', 'copy',
+                        outputName
+                    );
+                }
+
+                const exitCode = await ffmpeg.exec(execArgs);
 
                 if (exitCode !== 0 && typeof exitCode === 'number') {
                     const logSnippet = lastFfmpegLog ? ` (Details: ${lastFfmpegLog.slice(0, 140)})` : '';
