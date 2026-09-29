@@ -2893,7 +2893,10 @@ async function loadFFmpegModules() {
 
 /**
  * Loads and initializes the ffmpeg.wasm instance with wasm core files.
- * Correctly resolves wasm core files on the local server.
+ * Uses toBlobURL helper from @ffmpeg/util to fetch core.js, core.wasm, and worker.js
+ * and convert each into a Blob URL first before calling ffmpeg.load({ coreURL, wasmURL, workerURL }),
+ * preventing cross-origin Worker errors in browser environments.
+ * Ensures version compatibility between @ffmpeg/ffmpeg (0.12.15) and @ffmpeg/core (0.12.10).
  *
  * @param {Object} [options]
  * @param {Function} [options.onLog] - Callback for ffmpeg log messages ({ type, message })
@@ -2913,35 +2916,64 @@ async function loadFFmpeg(options = {}) {
 
     _ffmpegLoadingPromise = (async () => {
         const { FFmpeg, FFmpegUtil } = await loadFFmpegModules();
+        const { toBlobURL } = FFmpegUtil || {};
+
+        if (typeof toBlobURL !== 'function') {
+            throw new Error('The toBlobURL helper from @ffmpeg/util is not available.');
+        }
+
         const ffmpeg = new FFmpeg();
 
         if (options.onLog) ffmpeg.on('log', options.onLog);
         if (options.onProgress) ffmpeg.on('progress', options.onProgress);
 
-        // Core URLs: Resolve local server files first, fallback to CDN
-        const localCoreBase = new URL('./node_modules/@ffmpeg/core/dist/esm', window.location.href).href;
-        const cdnCoreBase = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+        // Compatible version configurations
+        const CORE_VERSION = '0.12.10';
+        const FFMPEG_VERSION = '0.12.15';
 
-        let coreURL = `${localCoreBase}/ffmpeg-core.js`;
-        let wasmURL = `${localCoreBase}/ffmpeg-core.wasm`;
+        // Local server paths
+        const localCoreBase = new URL('./node_modules/@ffmpeg/core/dist/esm', window.location.href).href;
+        const localFFmpegBase = new URL('./node_modules/@ffmpeg/ffmpeg/dist/esm', window.location.href).href;
+
+        // CDN fallback paths (using matching, compatible versions)
+        const cdnCoreBase = `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`;
+        const cdnFfmpegBase = `https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/esm`;
+
+        let coreSrc = `${localCoreBase}/ffmpeg-core.js`;
+        let wasmSrc = `${localCoreBase}/ffmpeg-core.wasm`;
+        let workerSrc = `${localFFmpegBase}/worker.js`;
 
         try {
-            // Verify local server serves the core wasm file
-            const check = await fetch(coreURL, { method: 'HEAD' });
+            // Check if local node_modules files are accessible
+            const check = await fetch(coreSrc, { method: 'HEAD' });
             if (!check.ok) {
                 throw new Error(`Local core file check returned status ${check.status}`);
             }
-            console.log('[FFmpeg] Loading wasm core from local server:', localCoreBase);
+            console.log('[FFmpeg] Using local server assets:', localCoreBase);
         } catch (netErr) {
-            console.warn('[FFmpeg] Local wasm core not accessible, switching to CDN core:', netErr.message);
-            coreURL = `${cdnCoreBase}/ffmpeg-core.js`;
-            wasmURL = `${cdnCoreBase}/ffmpeg-core.wasm`;
+            console.warn('[FFmpeg] Local assets not accessible, switching to CDN assets:', netErr.message);
+            coreSrc = `${cdnCoreBase}/ffmpeg-core.js`;
+            wasmSrc = `${cdnCoreBase}/ffmpeg-core.wasm`;
+            workerSrc = `${cdnFfmpegBase}/worker.js`;
         }
 
-        // Load FFmpeg WebAssembly core inside worker
+        console.log('[FFmpeg] Converting core.js, core.wasm, and worker.js to Blob URLs via toBlobURL...');
+
+        // Fetch core.js, core.wasm, and worker.js and convert each into a Blob URL
+        // to completely bypass browser cross-origin Worker and CORS restrictions
+        const [coreURL, wasmURL, workerURL] = await Promise.all([
+            toBlobURL(coreSrc, 'text/javascript'),
+            toBlobURL(wasmSrc, 'application/wasm'),
+            toBlobURL(workerSrc, 'text/javascript')
+        ]);
+
+        console.log('[FFmpeg] Successfully created blob URLs for core, wasm, and worker. Loading ffmpeg engine...');
+
+        // Call ffmpeg.load() using those blob URLs for coreURL, wasmURL, and workerURL
         await ffmpeg.load({
             coreURL,
             wasmURL,
+            workerURL
         });
 
         console.log('[FFmpeg] ffmpeg.wasm core loaded successfully! Ready for processing.');
