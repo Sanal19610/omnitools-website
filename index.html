@@ -372,21 +372,6 @@
                         <button class="btn btn-outline launch-tool-btn" data-tool="image-studio">Open Tool →</button>
                     </div>
 
-                    <!-- Tool 6: Video Aspect Ratio Changer -->
-                    <div class="tool-card" data-category="utility" data-name="aspect ratio changer video resize crop pad convert">
-                        <div class="tool-card-badge badge-blue">Utility</div>
-                        <div class="tool-icon-wrapper tool-icon-blue">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6v12M16 6v12"/></svg>
-                        </div>
-                        <h3 class="tool-title">Video Aspect Ratio Changer</h3>
-                        <p class="tool-description">Upload a video from your computer and convert it to a new aspect ratio (9:16, 16:9, 1:1, 4:5) using crop or padding.</p>
-                        <div class="tool-meta">
-                            <span class="meta-tag">Crop or Pad</span>
-                            <span class="meta-tag">Multiple Ratios</span>
-                        </div>
-                        <button class="btn btn-outline launch-tool-btn" data-tool="aspect-ratio-changer">Open Tool →</button>
-                    </div>
-
                     <!-- Tool: YouTube Video Downloader (Coming Soon) -->
                     <div class="tool-card tool-card-coming-soon" data-category="video" data-name="youtube video downloader mp4 mp3 audio 1080p hd coming soon">
                         <div class="tool-card-badge badge-coming-soon">⏳ Coming Soon</div>
@@ -993,39 +978,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- TOOL WORKSPACE 6: Video Aspect Ratio Changer -->
-                <div class="tool-workspace hidden" id="workspace-aspect-ratio-changer">
-                    <div class="input-hero-group">
-                        <label for="aspectVideoInput">Select a video from your computer:</label>
-                        <input type="file" id="aspectVideoInput" accept="video/*" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="aspectRatioSelect">Target Aspect Ratio:</label>
-                        <select id="aspectRatioSelect" class="form-control">
-                            <option value="9:16">9:16 (Reels / Shorts / Stories)</option>
-                            <option value="16:9">16:9 (Standard Landscape)</option>
-                            <option value="1:1">1:1 (Square)</option>
-                            <option value="4:5">4:5 (Instagram Portrait)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="aspectModeSelect">Method:</label>
-                        <select id="aspectModeSelect" class="form-control">
-                            <option value="pad">Pad (keep full video, add black bars)</option>
-                            <option value="crop">Crop (fill frame, cut off edges)</option>
-                        </select>
-                    </div>
-
-                    <button class="btn btn-primary btn-block btn-lg" id="convertAspectBtn">🎬 Convert Video</button>
-
-                    <div class="tool-loader hidden" id="aspectLoader">
-                        <div class="spinner"></div>
-                        <p>Processing your video... this may take a moment.</p>
                     </div>
                 </div>
 

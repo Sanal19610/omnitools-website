@@ -50,12 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
             iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
             iconBg: 'tool-icon-pink'
         },
-        'aspect-ratio-changer': {
-            title: 'Video Aspect Ratio Changer',
-            tag: 'Utilities',
-            iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 6v12M16 6v12"/></svg>`,
-            iconBg: 'tool-icon-blue'
-        },
 
     };
 
@@ -2072,62 +2066,4 @@ async function analyzeYouTubeLink() {
             showToast('Resized photo downloaded successfully! 🎉');
         });
     }
-
-    // ------------------------------------------------------------------
-    // TOOL: Video Aspect Ratio Changer Engine
-    // ------------------------------------------------------------------
-    const convertAspectBtn = document.getElementById('convertAspectBtn');
-    const aspectVideoInput = document.getElementById('aspectVideoInput');
-    const aspectRatioSelect = document.getElementById('aspectRatioSelect');
-    const aspectModeSelect = document.getElementById('aspectModeSelect');
-    const aspectLoader = document.getElementById('aspectLoader');
-
-    if (convertAspectBtn) {
-        convertAspectBtn.addEventListener('click', async () => {
-            const file = aspectVideoInput.files[0];
-            if (!file) {
-                showToast('Please select a video file first! 🎬', 'warning');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('video', file);
-            formData.append('ratio', aspectRatioSelect.value);
-            formData.append('mode', aspectModeSelect.value);
-
-            aspectLoader.classList.remove('hidden');
-            convertAspectBtn.disabled = true;
-
-            try {
-                const response = await fetch(getBackendUrl('/change-aspect-ratio'), {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.error || 'Conversion failed.');
-                }
-
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = 'converted-video.mp4';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(downloadUrl);
-
-                showToast('Video converted and downloaded! ✅');
-            } catch (err) {
-                console.error(err);
-                showToast(err.message || 'Something went wrong during conversion.', 'warning');
-            } finally {
-                aspectLoader.classList.add('hidden');
-                convertAspectBtn.disabled = false;
-            }
-        });
-    }
-
 });
