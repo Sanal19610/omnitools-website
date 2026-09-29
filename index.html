@@ -12,6 +12,16 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%236366f1'/><path d='M12 10h8v12h-8z' fill='%23ffffff'/></svg>">
 
+    <!-- Import Map for Vanilla ES Modules (@ffmpeg/ffmpeg and @ffmpeg/util) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@ffmpeg/ffmpeg": "./node_modules/@ffmpeg/ffmpeg/dist/esm/index.js",
+        "@ffmpeg/util": "./node_modules/@ffmpeg/util/dist/esm/index.js",
+        "@ffmpeg/core": "./node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js"
+      }
+    }
+    </script>
 </head>
 <body class="light-mode">
 
@@ -136,6 +146,10 @@
                                 <a href="#ig-downloader-tool" class="dash-nav-item tool-quick-link" data-tool="ig-downloader">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
                                     Instagram Reels
+                                </a>
+                                <a href="#workspace-video-aspect-ratio" class="dash-nav-item tool-quick-link" data-tool="video-aspect-ratio">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 4v16M16 4v16"/><polygon points="10 9 15 12 10 15 10 9" fill="currentColor"/></svg>
+                                    Video Aspect
                                 </a>
                                 <a href="#yt-downloader-tool" class="dash-nav-item tool-quick-link" data-tool="yt-downloader" style="opacity: 0.8;">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
@@ -370,6 +384,29 @@
                             <span class="meta-tag">Batch Resize</span>
                         </div>
                         <button class="btn btn-outline launch-tool-btn" data-tool="image-studio">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 6: Video Aspect Ratio Changer -->
+                    <div class="tool-card" data-category="utility video" data-latest="true" data-name="video aspect ratio changer crop pad resize 16:9 9:16 1:1 4:5 utility ffmpeg tools social media reels tiktok shorts youtube mp4 mov webm">
+                        <div class="tool-card-badges">
+                            <span class="tool-card-badge badge-new-star">⭐ NEW ✨</span>
+                            <span class="tool-card-badge badge-blue">Utility</span>
+                        </div>
+                        <div class="tool-icon-wrapper tool-icon-indigo">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                                <path d="M8 4v16M16 4v16"></path>
+                                <polygon points="10 9 15 12 10 15 10 9" fill="currentColor"></polygon>
+                            </svg>
+                        </div>
+                        <h3 class="tool-title">Video Aspect Ratio Changer</h3>
+                        <p class="tool-description">Easily change video aspect ratios between 16:9, 9:16, 1:1, and 4:5 with Crop or Pad framing modes for YouTube, Reels, and TikTok.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag meta-tag-new">⭐ New Tool</span>
+                            <span class="meta-tag">16:9 / 9:16 / 1:1</span>
+                            <span class="meta-tag">MP4 • MOV • WebM</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="video-aspect-ratio" data-target="#workspace-video-aspect-ratio">Open Tool →</button>
                     </div>
 
                     <!-- Tool: YouTube Video Downloader (Coming Soon) -->
@@ -981,7 +1018,240 @@
                     </div>
                 </div>
 
+                <!-- TOOL WORKSPACE 6: Video Aspect Ratio Changer -->
+                <div class="tool-workspace hidden" id="workspace-video-aspect-ratio">
+                    <div class="video-aspect-box">
 
+                        <!-- Error Alert for Invalid File Dropped -->
+                        <div class="video-error-alert hidden" id="videoDropError">
+                            <div class="error-alert-icon">⚠️</div>
+                            <div class="error-alert-content">
+                                <h4 class="error-alert-title" id="videoDropErrorTitle">Invalid File Type</h4>
+                                <p class="error-alert-message" id="videoDropErrorMsg">Only video files (MP4, MOV, WebM) are allowed. Please select or drop a valid video file.</p>
+                            </div>
+                            <button type="button" class="error-alert-close" id="closeVideoDropError" title="Dismiss">✕</button>
+                        </div>
+
+                        <!-- Drag-and-Drop / Clickable File Upload Area -->
+                        <div class="upload-dropzone video-dropzone" id="videoDropzone">
+                            <div class="dz-icon">🎬</div>
+                            <h3>Upload Video to Change Aspect Ratio</h3>
+                            <p>Drag & drop video here or <span class="dz-browse-link">browse files</span></p>
+                            <span class="dz-formats-badge">Accepts: MP4, MOV, WebM • Max 100MB</span>
+                            <input type="file" id="videoFileInput" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" class="hidden">
+                        </div>
+
+                        <!-- Video Studio Workspace (shown after a valid video is selected) -->
+                        <div class="video-studio-workspace hidden" id="videoPreviewArea">
+                            
+                            <!-- Selected Video File Info Card -->
+                            <div class="selected-video-card" id="selectedVideoCard">
+                                <div class="video-file-icon-wrap">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                    </svg>
+                                </div>
+                                <div class="video-file-info-details">
+                                    <div class="video-file-name-row">
+                                        <h4 class="video-file-name" id="videoFileName">video.mp4</h4>
+                                        <span class="badge-tag" id="videoFileFormatBadge">MP4</span>
+                                    </div>
+                                    <div class="video-file-meta-row">
+                                        <span>Size: <strong class="video-file-size" id="videoFileSize">0 MB</strong></span>
+                                        <span class="meta-dot">•</span>
+                                        <span>Dimensions: <strong id="videoFileDimensions">Loading...</strong></span>
+                                        <span class="meta-dot">•</span>
+                                        <span>Duration: <strong id="videoFileDuration">--:--</strong></span>
+                                    </div>
+                                </div>
+                                <div class="video-file-actions">
+                                    <button type="button" class="btn btn-outline btn-sm" id="changeVideoBtn">
+                                        Upload New Video 🔄
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Video Studio Container -->
+                            <div class="video-studio-panel mt-4">
+                                <div class="preview-header-bar">
+                                    <span class="badge-tag" id="videoAspectBadge">16:9 Landscape (1920x1080)</span>
+                                    <span class="badge-tag badge-purple" id="videoStatusBadge">⚡ Instant Live Preview</span>
+                                </div>
+
+                                <!-- Video Viewport Container -->
+                                <div class="video-viewport-container" id="videoViewportContainer">
+                                    <div class="video-aspect-canvas-wrap" id="videoAspectCanvasWrap" style="aspect-ratio: 16 / 9; background: #000000;">
+                                        <video id="videoPreviewPlayer" controls playsinline preload="metadata"></video>
+                                    </div>
+                                </div>
+
+                                <!-- Controls UI Below Video Preview -->
+                                <div class="video-preview-controls-bar mt-4">
+                                    
+                                    <!-- Aspect Ratio Selection Row (16:9, 9:16, 1:1, 4:5) -->
+                                    <div class="video-control-section">
+                                        <div class="video-control-section-header">
+                                            <h4 class="control-group-title mb-1">📐 Select Aspect Ratio</h4>
+                                            <span class="section-hint-text">Choose your destination platform aspect ratio</span>
+                                        </div>
+                                        <div class="video-aspect-ratio-row" id="videoAspectRatioGroup">
+                                            <button type="button" class="btn btn-outline video-ratio-btn active" data-ratio="16:9">
+                                                <span class="ratio-icon">📺</span>
+                                                <span class="ratio-title">16:9</span>
+                                                <small class="ratio-subtitle">Landscape (YouTube)</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline video-ratio-btn" data-ratio="9:16">
+                                                <span class="ratio-icon">📱</span>
+                                                <span class="ratio-title">9:16</span>
+                                                <small class="ratio-subtitle">Vertical (Reels/Shorts)</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline video-ratio-btn" data-ratio="1:1">
+                                                <span class="ratio-icon">⏹️</span>
+                                                <span class="ratio-title">1:1</span>
+                                                <small class="ratio-subtitle">Square (Post/Feed)</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline video-ratio-btn" data-ratio="4:5">
+                                                <span class="ratio-icon">🖼️</span>
+                                                <span class="ratio-title">4:5</span>
+                                                <small class="ratio-subtitle">Portrait (Instagram)</small>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Framing Mode Toggle: Crop vs Pad -->
+                                    <div class="video-control-section mt-3">
+                                        <div class="video-control-section-header">
+                                            <h4 class="control-group-title mb-1">✂️ Framing Mode</h4>
+                                            <span class="section-hint-text">Toggle between cropping to fill or padding with bars</span>
+                                        </div>
+                                        <div class="video-mode-toggle-row" id="videoFitModeGroup">
+                                            <button type="button" class="btn btn-outline video-mode-btn" data-mode="crop" data-fit="cover">
+                                                <span class="mode-icon">✂️</span>
+                                                <span class="mode-title">Crop</span>
+                                                <small class="mode-subtitle">Fill frame, crop edges</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline video-mode-btn active" data-mode="pad" data-fit="contain">
+                                                <span class="mode-icon">⬛</span>
+                                                <span class="mode-title">Pad</span>
+                                                <small class="mode-subtitle">Fit entire video, add letterbox</small>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Letterbox Bar Color Controls (shown in Pad mode) -->
+                                    <div class="video-control-section mt-3" id="videoBgColorBox">
+                                        <div class="video-control-section-header">
+                                            <h4 class="control-group-title mb-1">🎨 Letterbox Padding Color</h4>
+                                            <span class="section-hint-text">Select background color for letterbox / pillarbox bars</span>
+                                        </div>
+                                        <div class="color-options-row">
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="videoBgColor" value="#000000" checked>
+                                                <span class="swatch-circle" style="background:#000000;"></span> Black
+                                            </label>
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="videoBgColor" value="#ffffff">
+                                                <span class="swatch-circle" style="background:#ffffff; border:1px solid #ccc;"></span> White
+                                            </label>
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="videoBgColor" value="#6366f1">
+                                                <span class="swatch-circle" style="background:#6366f1;"></span> Indigo
+                                            </label>
+                                            <label class="color-swatch-label">
+                                                <input type="radio" name="videoBgColor" value="#1e293b">
+                                                <span class="swatch-circle" style="background:#1e293b;"></span> Slate Dark
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- Studio Export Box -->
+                                <div class="studio-export-box mt-4">
+                                    <div class="form-group-inline">
+                                        <label for="videoExportFormatSelect">Export Format:</label>
+                                        <select id="videoExportFormatSelect" class="form-control form-control-sm">
+                                            <option value="mp4">MP4 (.mp4 - Universal Compatibility)</option>
+                                            <option value="webm">WebM (.webm - Web Optimized)</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn btn-primary btn-lg btn-block" id="convertVideoBtn">
+                                        ⚡ Convert Video
+                                    </button>
+                                    
+                                    <!-- Progress state -->
+                                    <div class="video-process-progress-box hidden" id="videoProcessBox">
+                                        <div class="progress-bar-bg">
+                                            <div class="progress-bar-fill" id="videoProcessBar" style="width: 0%;"></div>
+                                        </div>
+                                        <p class="progress-status-text" id="videoProcessStatus">Initializing FFmpeg.wasm transcode...</p>
+                                    </div>
+
+                                    <!-- Process / Transcode Error Alert -->
+                                    <div class="video-error-alert hidden mt-3" id="videoProcessError">
+                                        <div class="error-alert-icon">⚠️</div>
+                                        <div class="error-alert-content">
+                                            <h4 class="error-alert-title" id="videoProcessErrorTitle">Conversion Failed</h4>
+                                            <p class="error-alert-message" id="videoProcessErrorMsg">An error occurred during video processing.</p>
+                                        </div>
+                                        <button type="button" class="error-alert-close" id="closeVideoProcessError" title="Dismiss">✕</button>
+                                    </div>
+                                </div>
+
+                                <!-- Converted Video Result Box (Second Preview Player + Direct Download) -->
+                                <div class="video-result-box hidden mt-4" id="videoResultBox">
+                                    <div class="result-header-card">
+                                        <div class="result-title-row">
+                                            <div class="result-title-left">
+                                                <span class="result-badge-icon">🎬</span>
+                                                <div>
+                                                    <h3 class="result-card-heading">Converted Video Preview</h3>
+                                                    <p class="result-card-sub">Processed with FFmpeg.wasm • Play preview & direct download</p>
+                                                </div>
+                                            </div>
+                                            <div class="result-badges-row">
+                                                <span class="badge-tag badge-green" id="videoResultAspectBadge">16:9 Landscape</span>
+                                                <span class="badge-tag" id="videoResultModeBadge">Framing: Pad</span>
+                                                <span class="badge-tag" id="videoResultResolutionBadge">1920x1080</span>
+                                                <span class="badge-tag" id="videoResultSizeBadge">0 MB</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Second Preview Player Viewport -->
+                                    <div class="video-viewport-container video-result-viewport-container mt-3">
+                                        <div class="video-aspect-canvas-wrap video-result-canvas-wrap" id="videoResultCanvasWrap" style="aspect-ratio: 16 / 9; background: #000000;">
+                                            <video id="videoResultPlayer" controls playsinline preload="metadata"></video>
+                                        </div>
+                                    </div>
+
+                                    <!-- Direct Download Group matching OmniTools other tools style -->
+                                    <div class="video-download-actions-group mt-3">
+                                        <!-- Direct 1-Click Quality Download Button (.btn-quality-download) -->
+                                        <button type="button" class="btn-quality-download" id="downloadConvertedVideoBtn">
+                                            <div class="quality-info-left">
+                                                <span class="quality-badge quality-badge-hd" id="resultFormatBadge">MP4</span>
+                                                <span class="quality-name" id="resultDownloadTitle">converted-video.mp4</span>
+                                            </div>
+                                            <div class="quality-info-right">
+                                                <span class="quality-filesize" id="resultDownloadSize">0 MB</span>
+                                                <span class="btn-download-action">⬇️ Download</span>
+                                            </div>
+                                        </button>
+
+                                        <!-- Primary Full-Width Action Button -->
+                                        <button type="button" class="btn btn-primary btn-block btn-lg mt-2" id="directDownloadBtn">
+                                            ⬇️ Download Converted Video (.mp4)
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
 
             </div>
         </div>
@@ -1005,6 +1275,7 @@
                     <a href="#" class="tool-quick-link" data-tool="yt-thumbnail">Thumbnail Extractor</a>
                     <a href="#" class="tool-quick-link" data-tool="audio-generator">AI Voice Synthesizer</a>
                     <a href="#" class="tool-quick-link" data-tool="ig-downloader">Instagram Reels</a>
+                    <a href="#" class="tool-quick-link" data-tool="video-aspect-ratio">Video Aspect Ratio</a>
                     <a href="#" class="tool-quick-link" data-tool="yt-downloader" style="opacity: 0.75;">YT Downloader (Soon)</a>
                 </div>
                 <div>

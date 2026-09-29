@@ -50,6 +50,12 @@ document.addEventListener('DOMContentLoaded', () => {
             iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
             iconBg: 'tool-icon-pink'
         },
+        'video-aspect-ratio': {
+            title: 'Video Aspect Ratio Changer',
+            tag: 'Utility',
+            iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 4v16M16 4v16"/><polygon points="10 9 15 12 10 15 10 9" fill="currentColor"/></svg>`,
+            iconBg: 'tool-icon-indigo'
+        },
 
     };
 
@@ -100,6 +106,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalToolTitle = document.getElementById('modalToolTitle');
     const modalToolTag = document.getElementById('modalToolTag');
     const modalToolIcon = document.getElementById('modalToolIcon');
+
+    // Video Aspect Ratio tool state
+    let currentVideoFile = null;
+    let currentVideoUrl = null;
+    let convertedVideoBlob = null;
+    let convertedVideoUrl = null;
+    let convertedVideoFileName = 'converted-video.mp4';
 
     function resetAllToolWorkspaces() {
         // Reset all text inputs & textareas
@@ -163,6 +176,86 @@ document.addEventListener('DOMContentLoaded', () => {
         if (studioImg) {
             studioImg.src = '';
             studioImg.style.filter = 'none';
+        }
+
+        // Clear Video Aspect Ratio Workspace
+        const videoDropzone = document.getElementById('videoDropzone');
+        if (videoDropzone) videoDropzone.classList.remove('hidden');
+        const videoPreviewArea = document.getElementById('videoPreviewArea');
+        if (videoPreviewArea) videoPreviewArea.classList.add('hidden');
+        const videoDropError = document.getElementById('videoDropError');
+        if (videoDropError) videoDropError.classList.add('hidden');
+        const videoProcessError = document.getElementById('videoProcessError');
+        if (videoProcessError) videoProcessError.classList.add('hidden');
+        const videoPreviewPlayer = document.getElementById('videoPreviewPlayer');
+        if (videoPreviewPlayer) {
+            videoPreviewPlayer.pause();
+            videoPreviewPlayer.removeAttribute('src');
+            videoPreviewPlayer.style.objectFit = 'contain';
+            videoPreviewPlayer.load();
+        }
+        if (currentVideoUrl) {
+            URL.revokeObjectURL(currentVideoUrl);
+            currentVideoUrl = null;
+        }
+        currentVideoFile = null;
+        if (convertedVideoUrl) {
+            URL.revokeObjectURL(convertedVideoUrl);
+            convertedVideoUrl = null;
+        }
+        convertedVideoBlob = null;
+        const videoResultBox = document.getElementById('videoResultBox');
+        if (videoResultBox) videoResultBox.classList.add('hidden');
+        const videoResultPlayer = document.getElementById('videoResultPlayer');
+        if (videoResultPlayer) {
+            videoResultPlayer.pause();
+            videoResultPlayer.removeAttribute('src');
+            videoResultPlayer.load();
+        }
+        const videoFileInput = document.getElementById('videoFileInput');
+        if (videoFileInput) videoFileInput.value = '';
+        const videoProcessBox = document.getElementById('videoProcessBox');
+        if (videoProcessBox) videoProcessBox.classList.add('hidden');
+        const videoProcessBar = document.getElementById('videoProcessBar');
+        if (videoProcessBar) videoProcessBar.style.width = '0%';
+        const videoProcessStatus = document.getElementById('videoProcessStatus');
+        if (videoProcessStatus) videoProcessStatus.textContent = 'Ready to convert';
+        const convertBtn = document.getElementById('convertVideoBtn') || document.getElementById('processVideoAspectBtn');
+        if (convertBtn) {
+            convertBtn.disabled = false;
+            convertBtn.innerHTML = '⚡ Convert Video';
+        }
+
+        // Reset Video Aspect Ratio and Mode Highlight States
+        const videoAspectRatioGroup = document.getElementById('videoAspectRatioGroup');
+        if (videoAspectRatioGroup) {
+            const aspectButtons = videoAspectRatioGroup.querySelectorAll('.video-ratio-btn, .aspect-btn');
+            aspectButtons.forEach(btn => {
+                if (btn.dataset.ratio === '16:9') btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+        const videoFitModeGroup = document.getElementById('videoFitModeGroup');
+        if (videoFitModeGroup) {
+            const modeButtons = videoFitModeGroup.querySelectorAll('.video-mode-btn, .fit-btn');
+            modeButtons.forEach(btn => {
+                const btnMode = btn.dataset.mode || (btn.dataset.fit === 'cover' ? 'crop' : 'pad');
+                if (btnMode === 'pad') btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+        const videoAspectCanvasWrap = document.getElementById('videoAspectCanvasWrap');
+        if (videoAspectCanvasWrap) {
+            videoAspectCanvasWrap.style.aspectRatio = '16 / 9';
+            videoAspectCanvasWrap.style.backgroundColor = '#000000';
+        }
+        const videoAspectBadge = document.getElementById('videoAspectBadge');
+        if (videoAspectBadge) {
+            videoAspectBadge.textContent = '16:9 Landscape (1920x1080)';
+        }
+        const videoBgColorBox = document.getElementById('videoBgColorBox');
+        if (videoBgColorBox) {
+            videoBgColorBox.classList.remove('hidden');
         }
     }
 
@@ -363,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (category === 'latest') {
                 matchesCat = isLatest;
             } else {
-                matchesCat = (cardCat === category);
+                matchesCat = (cardCat === category || (cardCat && cardCat.split(' ').includes(category)));
             }
 
             const matchesSearch = (!query || cardName.includes(query));
@@ -2066,4 +2159,811 @@ async function analyzeYouTubeLink() {
             showToast('Resized photo downloaded successfully! 🎉');
         });
     }
+
+    // ------------------------------------------------------------------
+    // TOOL 6: Video Aspect Ratio Changer Engine
+    // ------------------------------------------------------------------
+    const videoDropzone = document.getElementById('videoDropzone');
+    const videoFileInput = document.getElementById('videoFileInput');
+    const videoPreviewArea = document.getElementById('videoPreviewArea');
+    const videoDropError = document.getElementById('videoDropError');
+    const videoDropErrorTitle = document.getElementById('videoDropErrorTitle');
+    const videoDropErrorMsg = document.getElementById('videoDropErrorMsg');
+    const closeVideoDropError = document.getElementById('closeVideoDropError');
+    
+    const videoFileName = document.getElementById('videoFileName');
+    const videoFileSize = document.getElementById('videoFileSize');
+    const videoFileFormatBadge = document.getElementById('videoFileFormatBadge');
+    const videoFileDimensions = document.getElementById('videoFileDimensions');
+    const videoFileDuration = document.getElementById('videoFileDuration');
+    const changeVideoBtn = document.getElementById('changeVideoBtn');
+
+    const videoAspectCanvasWrap = document.getElementById('videoAspectCanvasWrap');
+    const videoPreviewPlayer = document.getElementById('videoPreviewPlayer');
+    const videoAspectBadge = document.getElementById('videoAspectBadge');
+    const videoAspectRatioGroup = document.getElementById('videoAspectRatioGroup');
+    const videoFitModeGroup = document.getElementById('videoFitModeGroup');
+    const videoBgColorBox = document.getElementById('videoBgColorBox');
+    const convertVideoBtn = document.getElementById('convertVideoBtn') || document.getElementById('processVideoAspectBtn');
+    const processVideoAspectBtn = convertVideoBtn;
+    const videoExportFormatSelect = document.getElementById('videoExportFormatSelect');
+    const videoProcessBox = document.getElementById('videoProcessBox');
+    const videoProcessBar = document.getElementById('videoProcessBar');
+    const videoProcessStatus = document.getElementById('videoProcessStatus');
+
+    const videoProcessError = document.getElementById('videoProcessError');
+    const videoProcessErrorTitle = document.getElementById('videoProcessErrorTitle');
+    const videoProcessErrorMsg = document.getElementById('videoProcessErrorMsg');
+    const closeVideoProcessError = document.getElementById('closeVideoProcessError');
+
+    // 100MB File Size Limit for In-Browser FFmpeg.wasm Stability
+    const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+    const MAX_VIDEO_SIZE_LABEL = '100MB';
+
+    const videoResultBox = document.getElementById('videoResultBox');
+    const videoResultPlayer = document.getElementById('videoResultPlayer');
+    const videoResultCanvasWrap = document.getElementById('videoResultCanvasWrap');
+    const videoResultAspectBadge = document.getElementById('videoResultAspectBadge');
+    const videoResultModeBadge = document.getElementById('videoResultModeBadge');
+    const videoResultResolutionBadge = document.getElementById('videoResultResolutionBadge');
+    const videoResultSizeBadge = document.getElementById('videoResultSizeBadge');
+    const downloadConvertedVideoBtn = document.getElementById('downloadConvertedVideoBtn');
+    const resultFormatBadge = document.getElementById('resultFormatBadge');
+    const resultDownloadTitle = document.getElementById('resultDownloadTitle');
+    const resultDownloadSize = document.getElementById('resultDownloadSize');
+    const directDownloadBtn = document.getElementById('directDownloadBtn');
+
+    let selectedVideoRatio = '16:9';
+    let selectedVideoMode = 'pad'; // 'crop' or 'pad'
+    let selectedVideoFit = 'contain'; // 'contain' for pad, 'cover' for crop
+    let selectedVideoBgColor = '#000000';
+
+    const videoRatioLabels = {
+        '16:9': '16:9 Landscape (1920x1080)',
+        '9:16': '9:16 Vertical (1080x1920)',
+        '1:1': '1:1 Square (1080x1080)',
+        '4:5': '4:5 Portrait (1080x1350)'
+    };
+
+    // Format file sizes into human-readable strings
+    function formatFileSize(bytes) {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // Format video duration seconds into MM:SS
+    function formatTimeDuration(seconds) {
+        if (!seconds || isNaN(seconds)) return '00:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Dismiss error alert
+    if (closeVideoDropError) {
+        closeVideoDropError.addEventListener('click', () => {
+            if (videoDropError) videoDropError.classList.add('hidden');
+        });
+    }
+
+    // Dismiss conversion process error alert
+    if (closeVideoProcessError) {
+        closeVideoProcessError.addEventListener('click', () => {
+            if (videoProcessError) videoProcessError.classList.add('hidden');
+        });
+    }
+
+    // Show error alert with message
+    function showVideoDropError(title, message) {
+        if (!videoDropError) return;
+        if (videoDropErrorTitle) videoDropErrorTitle.textContent = title;
+        if (videoDropErrorMsg) videoDropErrorMsg.textContent = message;
+        videoDropError.classList.remove('hidden');
+
+        // Shake dropzone
+        if (videoDropzone) {
+            videoDropzone.style.animation = 'none';
+            void videoDropzone.offsetWidth; // trigger reflow
+            videoDropzone.style.animation = 'shake 0.4s ease';
+            setTimeout(() => { videoDropzone.style.animation = ''; }, 450);
+        }
+
+        showToast(message, 'warning');
+    }
+
+    // Show conversion process error alert with message
+    function showVideoProcessError(title, message) {
+        if (!videoProcessError) return;
+        if (videoProcessErrorTitle) videoProcessErrorTitle.textContent = title;
+        if (videoProcessErrorMsg) videoProcessErrorMsg.textContent = message;
+        videoProcessError.classList.remove('hidden');
+        videoProcessError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Validation function for dropped or selected files
+    function isAllowedVideoFile(file) {
+        if (!file) return false;
+        const validExtensions = ['.mp4', '.mov', '.webm'];
+        const name = (file.name || '').toLowerCase();
+        const hasValidExt = validExtensions.some(ext => name.endsWith(ext));
+        const hasValidMime = file.type ? (
+            file.type === 'video/mp4' ||
+            file.type === 'video/quicktime' ||
+            file.type === 'video/webm' ||
+            file.type.startsWith('video/')
+        ) : false;
+
+        return hasValidExt || hasValidMime;
+    }
+
+    // Load and process valid video file
+    function handleSelectedVideoFile(file) {
+        if (!file) return;
+
+        // Strict validation: Only accept MP4, MOV, and WebM video files
+        if (!isAllowedVideoFile(file)) {
+            const fileName = file.name || 'Unknown file';
+            const fileExt = fileName.includes('.') ? fileName.split('.').pop().toUpperCase() : 'UNKNOWN';
+            showVideoDropError(
+                'Invalid File Type',
+                `"${fileName}" (${fileExt}) is not a supported video file. Please upload an MP4, MOV, or WebM video.`
+            );
+            if (videoFileInput) videoFileInput.value = '';
+            return;
+        }
+
+        // File size limit validation: Max 100MB
+        if (file.size > MAX_VIDEO_SIZE_BYTES) {
+            const fileName = file.name || 'Selected file';
+            const formattedSize = formatFileSize(file.size);
+            showVideoDropError(
+                'File Size Exceeded (Max 100MB)',
+                `"${fileName}" is ${formattedSize}, which exceeds the 100MB browser limit. Since FFmpeg.wasm operates client-side inside browser memory, very large files can crash your tab. Please select a video file under 100MB.`
+            );
+            if (videoFileInput) videoFileInput.value = '';
+            return;
+        }
+
+        // Hide any previous error
+        if (videoDropError) videoDropError.classList.add('hidden');
+        if (videoProcessError) videoProcessError.classList.add('hidden');
+
+        // Hide previous conversion result and revoke blob url
+        if (videoResultBox) videoResultBox.classList.add('hidden');
+        if (videoResultPlayer) {
+            videoResultPlayer.pause();
+            videoResultPlayer.removeAttribute('src');
+            videoResultPlayer.load();
+        }
+        if (convertedVideoUrl) {
+            URL.revokeObjectURL(convertedVideoUrl);
+            convertedVideoUrl = null;
+        }
+        convertedVideoBlob = null;
+
+        currentVideoFile = file;
+
+        // Cleanup previous object URL
+        if (currentVideoUrl) {
+            URL.revokeObjectURL(currentVideoUrl);
+        }
+
+        currentVideoUrl = URL.createObjectURL(file);
+
+        // Update file info display
+        if (videoFileName) videoFileName.textContent = file.name;
+        if (videoFileSize) videoFileSize.textContent = formatFileSize(file.size);
+
+        // Determine extension badge
+        const extMatch = file.name.match(/\.([a-zA-Z0-9]+)$/);
+        const ext = extMatch ? extMatch[1].toUpperCase() : 'VIDEO';
+        if (videoFileFormatBadge) videoFileFormatBadge.textContent = ext;
+
+        if (videoFileDimensions) videoFileDimensions.textContent = 'Loading dimensions...';
+        if (videoFileDuration) videoFileDuration.textContent = '--:--';
+
+        // Load into HTML5 video player with standard play/pause controls via local object URL
+        if (videoPreviewPlayer) {
+            videoPreviewPlayer.src = currentVideoUrl;
+            videoPreviewPlayer.load();
+            videoPreviewPlayer.onloadedmetadata = () => {
+                const width = videoPreviewPlayer.videoWidth;
+                const height = videoPreviewPlayer.videoHeight;
+                const dur = videoPreviewPlayer.duration;
+
+                if (videoFileDimensions) videoFileDimensions.textContent = `${width} x ${height} px`;
+                if (videoFileDuration) videoFileDuration.textContent = formatTimeDuration(dur);
+            };
+        }
+
+        // Hide dropzone, show preview area
+        if (videoDropzone) videoDropzone.classList.add('hidden');
+        if (videoPreviewArea) videoPreviewArea.classList.remove('hidden');
+
+        showToast(`Video loaded: ${file.name} (${formatFileSize(file.size)}) 🎬`, 'info');
+    }
+
+    // Click on dropzone to trigger native file dialog
+    if (videoDropzone && videoFileInput) {
+        videoDropzone.addEventListener('click', (e) => {
+            if (e.target.closest('input')) return;
+            videoFileInput.click();
+        });
+
+        videoFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleSelectedVideoFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and Drop Events
+        ['dragenter', 'dragover'].forEach(evtName => {
+            videoDropzone.addEventListener(evtName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                videoDropzone.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach(evtName => {
+            videoDropzone.addEventListener(evtName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                videoDropzone.classList.remove('dragover');
+            });
+        });
+
+        videoDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            videoDropzone.classList.remove('dragover');
+
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                handleSelectedVideoFile(dt.files[0]);
+            }
+        });
+    }
+
+    // Change / Upload New Video Button
+    if (changeVideoBtn && videoFileInput) {
+        changeVideoBtn.addEventListener('click', () => {
+            videoFileInput.click();
+        });
+    }
+
+    // Function to apply and visually highlight aspect ratio selection
+    function setVideoAspectRatio(ratio) {
+        selectedVideoRatio = ratio;
+
+        // Visually highlight the selected ratio button in the UI row
+        if (videoAspectRatioGroup) {
+            const aspectButtons = videoAspectRatioGroup.querySelectorAll('.video-ratio-btn, .aspect-btn');
+            aspectButtons.forEach(btn => {
+                if (btn.dataset.ratio === ratio) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Apply dynamic aspect ratio to canvas wrapper
+        if (videoAspectCanvasWrap) {
+            const ratioCSS = ratio.replace(':', ' / ');
+            videoAspectCanvasWrap.style.aspectRatio = ratioCSS;
+        }
+
+        // Update instant preview badge
+        if (videoAspectBadge) {
+            videoAspectBadge.textContent = videoRatioLabels[ratio] || `${ratio} Aspect Preview`;
+        }
+
+        showToast(`Selected aspect ratio: ${ratio} 📐`);
+    }
+
+    // Function to apply and visually highlight framing mode (Crop vs Pad)
+    function setVideoFramingMode(mode) {
+        selectedVideoMode = mode;
+        selectedVideoFit = (mode === 'crop') ? 'cover' : 'contain';
+
+        // Visually highlight the selected mode button in the toggle group
+        if (videoFitModeGroup) {
+            const modeButtons = videoFitModeGroup.querySelectorAll('.video-mode-btn, .fit-btn');
+            modeButtons.forEach(btn => {
+                const btnMode = btn.dataset.mode || (btn.dataset.fit === 'cover' ? 'crop' : 'pad');
+                if (btnMode === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Update video preview element object-fit
+        if (videoPreviewPlayer) {
+            videoPreviewPlayer.style.objectFit = selectedVideoFit;
+        }
+
+        // Show/hide letterbox background color picker
+        if (videoBgColorBox) {
+            if (selectedVideoMode === 'pad') {
+                videoBgColorBox.classList.remove('hidden');
+            } else {
+                videoBgColorBox.classList.add('hidden');
+            }
+        }
+
+        showToast(`Framing mode: ${selectedVideoMode === 'crop' ? 'Crop (Fill Canvas) ✂️' : 'Pad (Letterbox Bars) ⬛'}`);
+    }
+
+    // Aspect Ratio Selection Buttons (16:9, 9:16, 1:1, 4:5)
+    if (videoAspectRatioGroup) {
+        const aspectButtons = videoAspectRatioGroup.querySelectorAll('.video-ratio-btn, .aspect-btn');
+        aspectButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const ratio = btn.dataset.ratio || '16:9';
+                setVideoAspectRatio(ratio);
+            });
+        });
+    }
+
+    // Framing Mode Toggle Buttons ('Crop' vs 'Pad')
+    if (videoFitModeGroup) {
+        const modeButtons = videoFitModeGroup.querySelectorAll('.video-mode-btn, .fit-btn');
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode || (btn.dataset.fit === 'cover' ? 'crop' : 'pad');
+                setVideoFramingMode(mode);
+            });
+        });
+    }
+
+    // Background Padding Color Radios
+    const videoBgColorRadios = document.querySelectorAll('input[name="videoBgColor"]');
+    videoBgColorRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            selectedVideoBgColor = e.target.value;
+            if (videoAspectCanvasWrap) {
+                videoAspectCanvasWrap.style.backgroundColor = selectedVideoBgColor;
+            }
+        });
+    });
+
+    // Process / Transcode Video Aspect Ratio with FFmpeg.wasm
+    // Convert / Transcode Video Aspect Ratio with FFmpeg.wasm
+    if (convertVideoBtn) {
+        convertVideoBtn.addEventListener('click', async () => {
+            // Dismiss previous error alert
+            if (videoProcessError) videoProcessError.classList.add('hidden');
+
+            if (!currentVideoFile) {
+                showToast('Please upload a video file first! 🎬', 'warning');
+                return;
+            }
+
+            // Guard against oversized file (>100MB)
+            if (currentVideoFile.size > MAX_VIDEO_SIZE_BYTES) {
+                const formattedSize = formatFileSize(currentVideoFile.size);
+                showVideoProcessError(
+                    'File Size Exceeded (Max 100MB)',
+                    `This video is ${formattedSize}, which exceeds the 100MB browser limit. Very large files can crash the browser tab during processing. Please select a video under 100MB.`
+                );
+                return;
+            }
+
+            // Disable button while processing
+            convertVideoBtn.disabled = true;
+            convertVideoBtn.innerHTML = '⏳ Converting Video...';
+
+            if (videoProcessBox) videoProcessBox.classList.remove('hidden');
+            if (videoProcessBar) videoProcessBar.style.width = '5%';
+            if (videoProcessStatus) videoProcessStatus.textContent = 'Initializing FFmpeg.wasm engine...';
+
+            let ffmpeg = null;
+            let progressHandler = null;
+            let logHandler = null;
+            let lastFfmpegLog = '';
+            let inputName = null;
+            let outputName = null;
+
+            try {
+                // Ensure FFmpeg is loaded with timeout safeguard to prevent silent freeze
+                const loadPromise = window.loadFFmpeg();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('FFmpeg initialization timed out (60s). Please check your internet connection and verify WebAssembly support.')), 60000)
+                );
+                ffmpeg = await Promise.race([loadPromise, timeoutPromise]);
+
+                if (!ffmpeg) {
+                    throw new Error('FFmpeg instance could not be initialized.');
+                }
+
+                // Attach log listener to capture engine diagnostics
+                logHandler = ({ type, message }) => {
+                    if (message) {
+                        lastFfmpegLog = message;
+                        if (type === 'error' || message.toLowerCase().includes('error')) {
+                            console.warn('[FFmpeg Log Error]:', message);
+                        }
+                    }
+                };
+                if (typeof ffmpeg.on === 'function') {
+                    ffmpeg.on('log', logHandler);
+                }
+
+                // Attach progress listener using ffmpeg's built-in progress event
+                progressHandler = ({ progress, time }) => {
+                    const pct = Math.min(Math.max(Math.round(progress * 100), 0), 100);
+                    if (videoProcessBar) {
+                        videoProcessBar.style.width = `${pct}%`;
+                    }
+                    if (videoProcessStatus) {
+                        videoProcessStatus.textContent = `Converting video with FFmpeg... ${pct}%`;
+                    }
+                };
+                if (typeof ffmpeg.on === 'function') {
+                    ffmpeg.on('progress', progressHandler);
+                }
+
+                if (videoProcessBar) videoProcessBar.style.width = '15%';
+                if (videoProcessStatus) videoProcessStatus.textContent = 'Loading video file into memory...';
+
+                const inputExt = (currentVideoFile.name.split('.').pop() || 'mp4').toLowerCase();
+                inputName = `input_${Date.now()}.${inputExt}`;
+                const outFormat = videoExportFormatSelect ? videoExportFormatSelect.value : 'mp4';
+                outputName = `output_${Date.now()}.${outFormat}`;
+
+                let fileData;
+                try {
+                    if (window.FFmpegUtil && typeof window.FFmpegUtil.fetchFile === 'function') {
+                        fileData = await window.FFmpegUtil.fetchFile(currentVideoFile);
+                    } else {
+                        fileData = new Uint8Array(await currentVideoFile.arrayBuffer());
+                    }
+                } catch (readErr) {
+                    throw new Error(`Failed to load video file into memory: ${readErr.message || 'File access error or browser memory exhausted'}`);
+                }
+
+                try {
+                    await ffmpeg.writeFile(inputName, fileData);
+                } catch (writeErr) {
+                    throw new Error(`Failed to write video into virtual filesystem: ${writeErr.message || 'Virtual filesystem memory error'}`);
+                }
+
+                if (videoProcessBar) videoProcessBar.style.width = '25%';
+                if (videoProcessStatus) videoProcessStatus.textContent = 'Configuring aspect ratio filter...';
+
+                // Target dimensions based on selected ratio
+                const ratioMap = {
+                    '16:9': [1920, 1080],
+                    '9:16': [1080, 1920],
+                    '1:1': [1080, 1080],
+                    '4:5': [1080, 1350]
+                };
+                const [targetW, targetH] = ratioMap[selectedVideoRatio] || [1920, 1080];
+
+                // Build filter string: crop filter for Crop mode, pad filter (with black background) for Pad mode
+                let filterStr;
+                if (selectedVideoMode === 'crop') {
+                    // Use ffmpeg's crop filter for Crop mode (scale to fill target ratio, then crop excess)
+                    filterStr = `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH}`;
+                } else {
+                    // Use ffmpeg's pad filter (with a black background) for Pad mode
+                    filterStr = `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2:color=black`;
+                }
+
+                console.log(`[FFmpeg Convert] Starting transcode ratio=${selectedVideoRatio} mode=${selectedVideoMode} filter="${filterStr}"`);
+
+                // Execute transcode with ultra-fast preset
+                const exitCode = await ffmpeg.exec([
+                    '-i', inputName,
+                    '-vf', filterStr,
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '26',
+                    '-c:a', 'copy',
+                    outputName
+                ]);
+
+                if (exitCode !== 0 && typeof exitCode === 'number') {
+                    const logSnippet = lastFfmpegLog ? ` (Details: ${lastFfmpegLog.slice(0, 140)})` : '';
+                    throw new Error(`FFmpeg processing failed with exit code ${exitCode}${logSnippet}. The video format or codec might not be supported.`);
+                }
+
+                if (videoProcessBar) videoProcessBar.style.width = '100%';
+                if (videoProcessStatus) videoProcessStatus.textContent = 'Conversion complete! 100%';
+
+                const outputData = await ffmpeg.readFile(outputName);
+                if (!outputData || outputData.byteLength === 0) {
+                    throw new Error('Converted video output file was empty or could not be generated.');
+                }
+
+                const mimeType = outFormat === 'webm' ? 'video/webm' : 'video/mp4';
+                const resultBlob = new Blob([outputData.buffer], { type: mimeType });
+
+                // Revoke old converted URL if present
+                if (convertedVideoUrl) {
+                    URL.revokeObjectURL(convertedVideoUrl);
+                    convertedVideoUrl = null;
+                }
+
+                convertedVideoBlob = resultBlob;
+                convertedVideoUrl = URL.createObjectURL(resultBlob);
+                convertedVideoFileName = `converted-video.${outFormat}`;
+
+                // Display in second preview player
+                if (videoResultPlayer) {
+                    videoResultPlayer.src = convertedVideoUrl;
+                    videoResultPlayer.load();
+                }
+
+                // Match canvas aspect ratio and background styling
+                if (videoResultCanvasWrap) {
+                    const ratioCssMap = {
+                        '16:9': '16 / 9',
+                        '9:16': '9 / 16',
+                        '1:1': '1 / 1',
+                        '4:5': '4 / 5'
+                    };
+                    videoResultCanvasWrap.style.aspectRatio = ratioCssMap[selectedVideoRatio] || '16 / 9';
+                    videoResultCanvasWrap.style.backgroundColor = selectedVideoMode === 'pad' ? selectedVideoBgColor : '#000000';
+                }
+
+                // Update result badges and download labels
+                const [targetWRes, targetHRes] = ratioMap[selectedVideoRatio] || [1920, 1080];
+                if (videoResultAspectBadge) {
+                    videoResultAspectBadge.textContent = `${selectedVideoRatio} ${selectedVideoRatio === '16:9' ? 'Landscape' : selectedVideoRatio === '9:16' ? 'Vertical' : selectedVideoRatio === '1:1' ? 'Square' : 'Portrait'}`;
+                }
+                if (videoResultModeBadge) {
+                    videoResultModeBadge.textContent = selectedVideoMode === 'crop' ? 'Framing: Crop' : 'Framing: Pad';
+                }
+                if (videoResultResolutionBadge) {
+                    videoResultResolutionBadge.textContent = `${targetWRes}x${targetHRes}`;
+                }
+                if (videoResultSizeBadge) {
+                    videoResultSizeBadge.textContent = formatFileSize(resultBlob.size);
+                }
+                if (resultFormatBadge) {
+                    resultFormatBadge.textContent = outFormat.toUpperCase();
+                }
+                if (resultDownloadTitle) {
+                    resultDownloadTitle.textContent = convertedVideoFileName;
+                }
+                if (resultDownloadSize) {
+                    resultDownloadSize.textContent = formatFileSize(resultBlob.size);
+                }
+                if (directDownloadBtn) {
+                    directDownloadBtn.textContent = `⬇️ Download ${convertedVideoFileName}`;
+                }
+
+                // Show the second preview player & download area
+                if (videoResultBox) {
+                    videoResultBox.classList.remove('hidden');
+                    videoResultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                showToast('Video converted successfully! Preview player & Download ready 🎉', 'success');
+
+                // Cleanup virtual files from ffmpeg FS
+                try {
+                    await ffmpeg.deleteFile(inputName);
+                    await ffmpeg.deleteFile(outputName);
+                } catch (_) {}
+
+                setTimeout(() => {
+                    if (videoProcessBox) videoProcessBox.classList.add('hidden');
+                }, 3000);
+
+            } catch (procErr) {
+                console.error('[FFmpeg Aspect Ratio] Processing error:', procErr);
+
+                // Format a clear, friendly error message instead of freezing silently
+                let friendlyMsg = procErr.message || 'An unexpected error occurred during conversion.';
+                const lowerErr = (friendlyMsg + ' ' + (lastFfmpegLog || '')).toLowerCase();
+
+                if (lowerErr.includes('out of memory') || lowerErr.includes('oom') || lowerErr.includes('memory') || lowerErr.includes('heap')) {
+                    friendlyMsg = 'The browser ran out of memory while converting this video. In-browser WebAssembly memory is limited—please try a shorter clip or smaller video under 100MB.';
+                } else if (lowerErr.includes('codec') || lowerErr.includes('unsupported') || lowerErr.includes('format')) {
+                    friendlyMsg = 'Unsupported video codec or corrupted video stream. Please ensure your video uses standard H.264/AAC or VP8/VP9 codecs.';
+                } else if (lowerErr.includes('timed out') || lowerErr.includes('timeout')) {
+                    friendlyMsg = 'Conversion or FFmpeg initialization timed out. Please check your network connection and reload the page.';
+                } else if (lowerErr.includes('abort') || lowerErr.includes('killed')) {
+                    friendlyMsg = 'The video conversion process was interrupted or aborted by the browser.';
+                }
+
+                // Show friendly inline error alert
+                showVideoProcessError('Conversion Failed', friendlyMsg);
+                showToast(`Conversion failed: ${friendlyMsg}`, 'error');
+
+                if (videoProcessBox) videoProcessBox.classList.add('hidden');
+
+                // Cleanup virtual files if possible
+                try {
+                    if (ffmpeg && inputName) await ffmpeg.deleteFile(inputName);
+                    if (ffmpeg && outputName) await ffmpeg.deleteFile(outputName);
+                } catch (_) {}
+
+            } finally {
+                // Detach listeners
+                try {
+                    if (ffmpeg) {
+                        if (progressHandler && typeof ffmpeg.off === 'function') {
+                            ffmpeg.off('progress', progressHandler);
+                        }
+                        if (logHandler && typeof ffmpeg.off === 'function') {
+                            ffmpeg.off('log', logHandler);
+                        }
+                    }
+                } catch (_) {}
+
+                // Always re-enable button to guarantee page never freezes silently
+                convertVideoBtn.disabled = false;
+                convertVideoBtn.innerHTML = '⚡ Convert Video';
+            }
+        });
+    }
+
+    // Direct Download Action for Converted Video (via local Blob URL)
+    function downloadConvertedVideo() {
+        if (!convertedVideoUrl || !convertedVideoBlob) {
+            showToast('No converted video available to download!', 'warning');
+            return;
+        }
+
+        const a = document.createElement('a');
+        a.href = convertedVideoUrl;
+        a.download = convertedVideoFileName || 'converted-video.mp4';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        showToast(`Downloading ${convertedVideoFileName}... 💾`, 'success');
+    }
+
+    if (downloadConvertedVideoBtn) {
+        downloadConvertedVideoBtn.addEventListener('click', downloadConvertedVideo);
+    }
+    if (directDownloadBtn) {
+        directDownloadBtn.addEventListener('click', downloadConvertedVideo);
+    }
+
+    // ------------------------------------------------------------------
+    // FFmpeg Engine Integration Log
+    // ------------------------------------------------------------------
+    console.log('[OmniTools] FFmpeg.wasm engine initialized. Call window.loadFFmpeg() or window.OmniFFmpeg.load() to load the wasm core.');
 });
+
+// ==================================================================
+// FFmpeg.wasm Engine Integration (@ffmpeg/ffmpeg & @ffmpeg/util)
+// Plain browser environment compatible (no bundler assumed)
+// ==================================================================
+
+let _ffmpegInstance = null;
+let _ffmpegLoadingPromise = null;
+
+/**
+ * Dynamically resolves and loads @ffmpeg/ffmpeg and @ffmpeg/util
+ * Works in vanilla browser with <script type="importmap">, direct local path, or CDN fallback.
+ */
+async function loadFFmpegModules() {
+    let FFmpeg = null;
+    let FFmpegUtil = null;
+
+    // 1. Attempt bare specifier import (via importmap in index.html)
+    try {
+        const ffmpegMod = await import('@ffmpeg/ffmpeg');
+        const utilMod = await import('@ffmpeg/util');
+        FFmpeg = ffmpegMod.FFmpeg;
+        FFmpegUtil = utilMod;
+    } catch (importMapErr) {
+        console.warn('[FFmpeg] Import map resolution skipped or unavailable, trying local node_modules path:', importMapErr?.message);
+    }
+
+    // 2. Fallback to direct relative path within local server's node_modules
+    if (!FFmpeg || !FFmpegUtil) {
+        try {
+            const ffmpegMod = await import('./node_modules/@ffmpeg/ffmpeg/dist/esm/index.js');
+            const utilMod = await import('./node_modules/@ffmpeg/util/dist/esm/index.js');
+            FFmpeg = ffmpegMod.FFmpeg;
+            FFmpegUtil = utilMod;
+        } catch (localPathErr) {
+            console.warn('[FFmpeg] Local node_modules relative import failed, falling back to CDN:', localPathErr?.message);
+        }
+    }
+
+    // 3. Fallback to high-availability CDN (unpkg)
+    if (!FFmpeg || !FFmpegUtil) {
+        try {
+            const ffmpegMod = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js');
+            const utilMod = await import('https://unpkg.com/@ffmpeg/util@0.12.2/dist/esm/index.js');
+            FFmpeg = ffmpegMod.FFmpeg;
+            FFmpegUtil = utilMod;
+        } catch (cdnErr) {
+            console.error('[FFmpeg] Failed to load FFmpeg modules from all sources:', cdnErr);
+            throw new Error('Unable to load FFmpeg modules: ' + cdnErr.message);
+        }
+    }
+
+    return { FFmpeg, FFmpegUtil };
+}
+
+/**
+ * Loads and initializes the ffmpeg.wasm instance with wasm core files.
+ * Correctly resolves wasm core files on the local server.
+ *
+ * @param {Object} [options]
+ * @param {Function} [options.onLog] - Callback for ffmpeg log messages ({ type, message })
+ * @param {Function} [options.onProgress] - Callback for transcode progress ({ progress, time })
+ * @returns {Promise<FFmpeg>}
+ */
+async function loadFFmpeg(options = {}) {
+    if (_ffmpegInstance && _ffmpegInstance.loaded) {
+        if (options.onLog) _ffmpegInstance.on('log', options.onLog);
+        if (options.onProgress) _ffmpegInstance.on('progress', options.onProgress);
+        return _ffmpegInstance;
+    }
+
+    if (_ffmpegLoadingPromise) {
+        return _ffmpegLoadingPromise;
+    }
+
+    _ffmpegLoadingPromise = (async () => {
+        const { FFmpeg, FFmpegUtil } = await loadFFmpegModules();
+        const ffmpeg = new FFmpeg();
+
+        if (options.onLog) ffmpeg.on('log', options.onLog);
+        if (options.onProgress) ffmpeg.on('progress', options.onProgress);
+
+        // Core URLs: Resolve local server files first, fallback to CDN
+        const localCoreBase = new URL('./node_modules/@ffmpeg/core/dist/esm', window.location.href).href;
+        const cdnCoreBase = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+
+        let coreURL = `${localCoreBase}/ffmpeg-core.js`;
+        let wasmURL = `${localCoreBase}/ffmpeg-core.wasm`;
+
+        try {
+            // Verify local server serves the core wasm file
+            const check = await fetch(coreURL, { method: 'HEAD' });
+            if (!check.ok) {
+                throw new Error(`Local core file check returned status ${check.status}`);
+            }
+            console.log('[FFmpeg] Loading wasm core from local server:', localCoreBase);
+        } catch (netErr) {
+            console.warn('[FFmpeg] Local wasm core not accessible, switching to CDN core:', netErr.message);
+            coreURL = `${cdnCoreBase}/ffmpeg-core.js`;
+            wasmURL = `${cdnCoreBase}/ffmpeg-core.wasm`;
+        }
+
+        // Load FFmpeg WebAssembly core inside worker
+        await ffmpeg.load({
+            coreURL,
+            wasmURL,
+        });
+
+        console.log('[FFmpeg] ffmpeg.wasm core loaded successfully! Ready for processing.');
+        _ffmpegInstance = ffmpeg;
+
+        // Expose to window for app-wide and console access
+        window.ffmpeg = ffmpeg;
+        window.FFmpeg = FFmpeg;
+        window.FFmpegUtil = FFmpegUtil;
+
+        return ffmpeg;
+    })();
+
+    return _ffmpegLoadingPromise;
+}
+
+// Expose public API
+window.loadFFmpeg = loadFFmpeg;
+window.getFFmpeg = () => _ffmpegInstance;
+window.OmniFFmpeg = {
+    load: loadFFmpeg,
+    getInstance: () => _ffmpegInstance,
+    loadModules: loadFFmpegModules,
+};
+
