@@ -3005,6 +3005,7 @@ async function loadFFmpeg(options = {}) {
 
         const localCoreUmdBase   = new URL('./node_modules/@ffmpeg/core/dist/umd',   window.location.href).href;
         const localFFmpegEsmBase = new URL('./node_modules/@ffmpeg/ffmpeg/dist/esm', window.location.href).href;
+        const localRootBase      = new URL('./', window.location.href).href;
 
         // CDN: jsDelivr for CORP header compliance. Core uses UMD, worker from ffmpeg ESM.
         const CDN_CORE_VERSION   = '0.12.10';
@@ -3015,7 +3016,7 @@ async function loadFFmpeg(options = {}) {
         // Raw source URLs (will be converted to blob URLs before use)
         let rawCoreJS   = localCoreUmdBase   + '/ffmpeg-core.js';
         let rawCoreWasm = localCoreUmdBase   + '/ffmpeg-core.wasm';
-        let rawWorkerJS = localFFmpegEsmBase + '/worker.js';
+        let rawWorkerJS = localRootBase      + 'worker.js';
         let usingLocal  = true;
 
         try {
@@ -3026,8 +3027,17 @@ async function loadFFmpeg(options = {}) {
             console.warn('[FFmpeg] Local assets unavailable, switching to jsDelivr CDN:', e.message);
             rawCoreJS   = jsdCoreUmdBase   + '/ffmpeg-core.js';
             rawCoreWasm = jsdCoreUmdBase   + '/ffmpeg-core.wasm';
-            rawWorkerJS = jsdFFmpegEsmBase + '/worker.js';
             usingLocal  = false;
+        }
+
+        // Test root worker.js first, fall back to node_modules or CDN
+        try {
+            const workerCheck = await fetch(rawWorkerJS, { method: 'HEAD' });
+            if (!workerCheck.ok) throw new Error('Root worker.js returned status ' + workerCheck.status);
+            console.log('[FFmpeg] Root worker.js accessible, using enhanced local worker.');
+        } catch (e) {
+            rawWorkerJS = usingLocal ? (localFFmpegEsmBase + '/worker.js') : (jsdFFmpegEsmBase + '/worker.js');
+            console.warn('[FFmpeg] Root worker.js unavailable, falling back to:', rawWorkerJS);
         }
 
         console.log('[FFmpeg] Asset source    :', usingLocal ? 'local node_modules' : 'jsDelivr CDN');
@@ -3061,31 +3071,85 @@ async function loadFFmpeg(options = {}) {
         console.log('[FFmpeg]  blobWasmURL  :', blobWasmURL.slice(0, 50) + '...');
         console.log('[FFmpeg]  blobWorkerURL:', blobWorkerURL.slice(0, 50) + '...');
 
+        // ── Step 3.5: Attach onerror & onmessageerror to Worker in main thread ─────
+        // Since FFmpeg encapsulates the Worker instance in a private field (#worker),
+        // we hook the Worker constructor on window so that any Worker instance spawned
+        // has onerror and onmessageerror attached, and errors are caught and logged with
+        // their actual message instead of silently hanging.
+        let workerCrashReject = null;
+        const workerCrashPromise = new Promise((_, reject) => {
+            workerCrashReject = reject;
+        });
+
+        if (!window.__ffmpegWorkerHookInstalled) {
+            window.__ffmpegWorkerHookInstalled = true;
+            const NativeWorker = window.Worker;
+
+            window.Worker = function(scriptURL, options) {
+                console.log('[Main Thread Worker] Creating Worker instance from URL:', scriptURL, 'options:', options);
+                const worker = new NativeWorker(scriptURL, options);
+
+                // 1) onerror handler to capture internal crashes and report actual error message
+                worker.onerror = function(event) {
+                    const crashMessage = event.message || (event.error && event.error.message) || 'Unknown Worker crash/error';
+                    const location = `${event.filename || 'worker.js'}:${event.lineno || '?'}:${event.colno || '?'}`;
+                    console.error(`[Main Thread Worker onerror] Worker crashed: "${crashMessage}" at ${location}`, {
+                        message: crashMessage,
+                        filename: event.filename,
+                        lineno: event.lineno,
+                        colno: event.colno,
+                        error: event.error,
+                        event: event
+                    });
+
+                    if (window.__ffmpegCurrentWorkerCrashReject) {
+                        window.__ffmpegCurrentWorkerCrashReject(new Error(`Worker fatal crash: "${crashMessage}" at ${location}`));
+                    }
+                };
+
+                // 1) onmessageerror handler to capture message deserialization issues
+                worker.onmessageerror = function(event) {
+                    console.error('[Main Thread Worker onmessageerror] Failed to deserialize message from Worker:', event);
+                    if (window.__ffmpegCurrentWorkerCrashReject) {
+                        window.__ffmpegCurrentWorkerCrashReject(new Error('Worker onmessageerror: Message could not be deserialized'));
+                    }
+                };
+
+                // Additional event listeners in case onerror is reassigned by library code
+                worker.addEventListener('error', function(event) {
+                    console.error('[Main Thread Worker Event: error]', event.message, event.filename, event.lineno);
+                });
+                worker.addEventListener('messageerror', function(event) {
+                    console.error('[Main Thread Worker Event: messageerror]', event);
+                });
+
+                window._activeFFmpegWorker = worker;
+                return worker;
+            };
+            window.Worker.prototype = NativeWorker.prototype;
+        }
+
+        window.__ffmpegCurrentWorkerCrashReject = workerCrashReject;
+
         // ── Step 4: ffmpeg.load() — blob URLs ONLY, raw URLs never used here ─────
         //
         // classWorkerURL: blob URL of worker.js — passed to new Worker() constructor.
-        //                 This is the critical one. Without it, the Worker is created
-        //                 using new URL('./worker.js', import.meta.url) which fails when
-        //                 the ffmpeg module was itself loaded from a blob URL (import.meta.url
-        //                 would be a blob: URL and './worker.js' relative to it is invalid).
-        //
-        // coreURL:        blob URL of ffmpeg-core.js (UMD) — sent to the worker via postMessage,
-        //                 loaded inside the worker with importScripts(coreURL).
-        //
-        // wasmURL:        blob URL of ffmpeg-core.wasm — sent to the worker, used by the core
-        //                 as the WebAssembly binary. If omitted, the worker derives it by
-        //                 replacing .js with .wasm in coreURL (which would be a blob URL and fail).
-        //                 So we always pass it explicitly.
-        //
-        // workerURL:      NOT passed — this is for @ffmpeg/core-mt (multi-thread) only.
-        //                 @ffmpeg/core (single-thread) does not emit a ffmpeg-core.worker.js.
+        // coreURL:        blob URL of ffmpeg-core.js (UMD) — sent to the worker via postMessage.
+        // wasmURL:        blob URL of ffmpeg-core.wasm — sent to the worker.
         //
         console.log('[FFmpeg] Calling ffmpeg.load() with blob URLs...');
-        await ffmpeg.load({
-            classWorkerURL: blobWorkerURL,
-            coreURL:        blobCoreURL,
-            wasmURL:        blobWasmURL,
-        });
+        try {
+            await Promise.race([
+                ffmpeg.load({
+                    classWorkerURL: blobWorkerURL,
+                    coreURL:        blobCoreURL,
+                    wasmURL:        blobWasmURL,
+                }),
+                workerCrashPromise
+            ]);
+        } finally {
+            window.__ffmpegCurrentWorkerCrashReject = null;
+        }
 
         console.log('[FFmpeg] Engine loaded successfully! Ready for video processing.');
         _ffmpegInstance = ffmpeg;
