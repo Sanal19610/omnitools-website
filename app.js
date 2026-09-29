@@ -2860,51 +2860,82 @@ async function analyzeYouTubeLink() {
 // ==================================================================
 // FFmpeg.wasm Engine Integration (@ffmpeg/ffmpeg & @ffmpeg/util)
 // Plain browser environment compatible (no bundler assumed)
+//
+// Confirmed installed packages:
+//   @ffmpeg/core    @ 0.12.10  (ffmpeg-core.js + ffmpeg-core.wasm, NO worker.js)
+//   @ffmpeg/ffmpeg  @ 0.12.15  (worker.js lives here, NOT in core)
+//   @ffmpeg/util    @ 0.12.2   (toBlobURL helper)
+//
+// KEY RULE: ALL assets MUST be converted to blob URLs via toBlobURL()
+// before being passed to ffmpeg.load(). Raw CDN/file URLs must NEVER
+// be passed directly -- this causes "Failed to construct Worker" errors
+// because browsers block cross-origin Workers. Blob URLs are same-origin
+// by definition, bypassing this restriction entirely.
+//
+// CDN choice: jsDelivr (preferred over unpkg) -- jsDelivr reliably sends
+// Cross-Origin-Resource-Policy: cross-origin header required when the page
+// is served with COEP: require-corp (e.g. on Vercel).
 // ==================================================================
 
-let _ffmpegInstance = null;
+let _ffmpegInstance      = null;
 let _ffmpegLoadingPromise = null;
 
 /**
- * Dynamically resolves and loads @ffmpeg/ffmpeg and @ffmpeg/util
- * Works in vanilla browser with <script type="importmap">, direct local path, or CDN fallback.
+ * Dynamically resolves and loads @ffmpeg/ffmpeg and @ffmpeg/util modules.
+ * Tries in order: importmap -> local node_modules -> jsDelivr CDN -> unpkg CDN.
  */
 async function loadFFmpegModules() {
-    let FFmpeg = null;
+    let FFmpeg    = null;
     let FFmpegUtil = null;
 
-    // 1. Attempt bare specifier import (via importmap in index.html)
+    // 1. importmap (index.html maps bare specifiers to local node_modules)
     try {
         const ffmpegMod = await import('@ffmpeg/ffmpeg');
-        const utilMod = await import('@ffmpeg/util');
-        FFmpeg = ffmpegMod.FFmpeg;
+        const utilMod   = await import('@ffmpeg/util');
+        FFmpeg     = ffmpegMod.FFmpeg;
         FFmpegUtil = utilMod;
-    } catch (importMapErr) {
-        console.warn('[FFmpeg] Import map resolution skipped or unavailable, trying local node_modules path:', importMapErr?.message);
+        console.log('[FFmpeg] Modules loaded via importmap.');
+    } catch (e) {
+        console.warn('[FFmpeg] importmap unavailable:', e?.message);
     }
 
-    // 2. Fallback to direct relative path within local server's node_modules
+    // 2. Direct relative path to local node_modules
     if (!FFmpeg || !FFmpegUtil) {
         try {
             const ffmpegMod = await import('./node_modules/@ffmpeg/ffmpeg/dist/esm/index.js');
-            const utilMod = await import('./node_modules/@ffmpeg/util/dist/esm/index.js');
-            FFmpeg = ffmpegMod.FFmpeg;
+            const utilMod   = await import('./node_modules/@ffmpeg/util/dist/esm/index.js');
+            FFmpeg     = ffmpegMod.FFmpeg;
             FFmpegUtil = utilMod;
-        } catch (localPathErr) {
-            console.warn('[FFmpeg] Local node_modules relative import failed, falling back to CDN:', localPathErr?.message);
+            console.log('[FFmpeg] Modules loaded from local node_modules path.');
+        } catch (e) {
+            console.warn('[FFmpeg] Local node_modules import failed:', e?.message);
         }
     }
 
-    // 3. Fallback to high-availability CDN (unpkg)
+    // 3. jsDelivr CDN (preferred: sends correct CORP headers under COEP: require-corp)
+    if (!FFmpeg || !FFmpegUtil) {
+        try {
+            const ffmpegMod = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js');
+            const utilMod   = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js');
+            FFmpeg     = ffmpegMod.FFmpeg;
+            FFmpegUtil = utilMod;
+            console.log('[FFmpeg] Modules loaded from jsDelivr CDN.');
+        } catch (e) {
+            console.warn('[FFmpeg] jsDelivr import failed:', e?.message);
+        }
+    }
+
+    // 4. unpkg CDN (last resort fallback)
     if (!FFmpeg || !FFmpegUtil) {
         try {
             const ffmpegMod = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js');
-            const utilMod = await import('https://unpkg.com/@ffmpeg/util@0.12.2/dist/esm/index.js');
-            FFmpeg = ffmpegMod.FFmpeg;
+            const utilMod   = await import('https://unpkg.com/@ffmpeg/util@0.12.2/dist/esm/index.js');
+            FFmpeg     = ffmpegMod.FFmpeg;
             FFmpegUtil = utilMod;
-        } catch (cdnErr) {
-            console.error('[FFmpeg] Failed to load FFmpeg modules from all sources:', cdnErr);
-            throw new Error('Unable to load FFmpeg modules: ' + cdnErr.message);
+            console.log('[FFmpeg] Modules loaded from unpkg CDN (last resort).');
+        } catch (e) {
+            console.error('[FFmpeg] All module sources exhausted:', e);
+            throw new Error('Unable to load FFmpeg modules from any source: ' + e.message);
         }
     }
 
@@ -2912,20 +2943,22 @@ async function loadFFmpegModules() {
 }
 
 /**
- * Loads and initializes the ffmpeg.wasm instance with wasm core files.
- * Uses toBlobURL helper from @ffmpeg/util to fetch core.js, core.wasm, and worker.js
- * and convert each into a Blob URL first before calling ffmpeg.load({ coreURL, wasmURL, workerURL }),
- * preventing cross-origin Worker errors in browser environments.
- * Ensures version compatibility between @ffmpeg/ffmpeg (0.12.15) and @ffmpeg/core (0.12.10).
+ * Loads and initializes the ffmpeg.wasm engine.
  *
- * @param {Object} [options]
- * @param {Function} [options.onLog] - Callback for ffmpeg log messages ({ type, message })
- * @param {Function} [options.onProgress] - Callback for transcode progress ({ progress, time })
+ * ALWAYS converts core.js, core.wasm, and worker.js to blob URLs via toBlobURL()
+ * before calling ffmpeg.load(). Raw URLs are NEVER passed to ffmpeg.load().
+ *
+ * Asset source priority: local node_modules -> jsDelivr CDN.
+ * The loading promise is reset on failure so callers can safely retry.
+ *
+ * @param {Object}   [options]
+ * @param {Function} [options.onLog]      - Log callback ({ type, message })
+ * @param {Function} [options.onProgress] - Progress callback ({ progress, time })
  * @returns {Promise<FFmpeg>}
  */
 async function loadFFmpeg(options = {}) {
     if (_ffmpegInstance && _ffmpegInstance.loaded) {
-        if (options.onLog) _ffmpegInstance.on('log', options.onLog);
+        if (options.onLog)      _ffmpegInstance.on('log',      options.onLog);
         if (options.onProgress) _ffmpegInstance.on('progress', options.onProgress);
         return _ffmpegInstance;
     }
@@ -2935,87 +2968,111 @@ async function loadFFmpeg(options = {}) {
     }
 
     _ffmpegLoadingPromise = (async () => {
+        // -- Step 1: Load JS modules --
         const { FFmpeg, FFmpegUtil } = await loadFFmpegModules();
         const { toBlobURL } = FFmpegUtil || {};
 
         if (typeof toBlobURL !== 'function') {
-            throw new Error('The toBlobURL helper from @ffmpeg/util is not available.');
+            throw new Error('toBlobURL is not available from @ffmpeg/util.');
         }
 
         const ffmpeg = new FFmpeg();
-
-        if (options.onLog) ffmpeg.on('log', options.onLog);
+        if (options.onLog)      ffmpeg.on('log',      options.onLog);
         if (options.onProgress) ffmpeg.on('progress', options.onProgress);
 
-        // Compatible version configurations
-        const CORE_VERSION = '0.12.10';
+        // -- Step 2: Resolve asset source URLs --
+        // @ffmpeg/core@0.12.10 ESM dist: ffmpeg-core.js + ffmpeg-core.wasm (NO worker.js here)
+        // @ffmpeg/ffmpeg@0.12.15 ESM dist: worker.js
+        const CORE_VERSION   = '0.12.10';
         const FFMPEG_VERSION = '0.12.15';
 
-        // Local server paths
-        const localCoreBase = new URL('./node_modules/@ffmpeg/core/dist/esm', window.location.href).href;
+        const localCoreBase   = new URL('./node_modules/@ffmpeg/core/dist/esm',   window.location.href).href;
         const localFFmpegBase = new URL('./node_modules/@ffmpeg/ffmpeg/dist/esm', window.location.href).href;
 
-        // CDN fallback paths (using matching, compatible versions)
-        const cdnCoreBase = `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`;
-        const cdnFfmpegBase = `https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/esm`;
+        // jsDelivr consistently serves Cross-Origin-Resource-Policy: cross-origin,
+        // required for toBlobURL to fetch assets when COEP: require-corp is active.
+        // unpkg does NOT reliably send this header, causing toBlobURL to fail under COEP.
+        const jsdCoreBase   = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@'   + CORE_VERSION   + '/dist/esm';
+        const jsdFFmpegBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@' + FFMPEG_VERSION + '/dist/esm';
 
-        let coreSrc = `${localCoreBase}/ffmpeg-core.js`;
-        let wasmSrc = `${localCoreBase}/ffmpeg-core.wasm`;
-        let workerSrc = `${localFFmpegBase}/worker.js`;
+        let coreSrc   = localCoreBase   + '/ffmpeg-core.js';
+        let wasmSrc   = localCoreBase   + '/ffmpeg-core.wasm';
+        let workerSrc = localFFmpegBase + '/worker.js';
+        let usingLocal = true;
 
         try {
-            // Check if local node_modules files are accessible
-            const check = await fetch(coreSrc, { method: 'HEAD' });
-            if (!check.ok) {
-                throw new Error(`Local core file check returned status ${check.status}`);
-            }
-            console.log('[FFmpeg] Using local server assets:', localCoreBase);
-        } catch (netErr) {
-            console.warn('[FFmpeg] Local assets not accessible, switching to CDN assets:', netErr.message);
-            coreSrc = `${cdnCoreBase}/ffmpeg-core.js`;
-            wasmSrc = `${cdnCoreBase}/ffmpeg-core.wasm`;
-            workerSrc = `${cdnFfmpegBase}/worker.js`;
+            const headCheck = await fetch(coreSrc, { method: 'HEAD' });
+            if (!headCheck.ok) throw new Error('HEAD returned ' + headCheck.status);
+            console.log('[FFmpeg] Using local node_modules assets.');
+        } catch (e) {
+            console.warn('[FFmpeg] Local assets unavailable, switching to jsDelivr CDN:', e.message);
+            coreSrc   = jsdCoreBase   + '/ffmpeg-core.js';
+            wasmSrc   = jsdCoreBase   + '/ffmpeg-core.wasm';
+            workerSrc = jsdFFmpegBase + '/worker.js';
+            usingLocal = false;
         }
 
-        console.log('[FFmpeg] Converting core.js, core.wasm, and worker.js to Blob URLs via toBlobURL...');
+        console.log('[FFmpeg] Asset source:', usingLocal ? 'local node_modules' : 'jsDelivr CDN');
+        console.log('[FFmpeg] coreSrc  :', coreSrc);
+        console.log('[FFmpeg] wasmSrc  :', wasmSrc);
+        console.log('[FFmpeg] workerSrc:', workerSrc);
 
-        // Fetch core.js, core.wasm, and worker.js and convert each into a Blob URL
-        // to completely bypass browser cross-origin Worker and CORS restrictions
-        const [coreURL, wasmURL, workerURL] = await Promise.all([
-            toBlobURL(coreSrc, 'text/javascript'),
-            toBlobURL(wasmSrc, 'application/wasm'),
-            toBlobURL(workerSrc, 'text/javascript')
-        ]);
+        // -- Step 3: Convert ALL assets to blob URLs (CRITICAL) --
+        // Blob URLs are always same-origin -- the ONLY safe way to instantiate a Worker
+        // that loads wasm in a cross-origin-isolated context.
+        // Passing raw CDN URLs directly => "Failed to construct Worker" on every browser.
+        console.log('[FFmpeg] Converting all assets to blob URLs via toBlobURL...');
+        let coreURL, wasmURL, workerURL;
+        try {
+            [coreURL, wasmURL, workerURL] = await Promise.all([
+                toBlobURL(coreSrc,   'text/javascript'),
+                toBlobURL(wasmSrc,   'application/wasm'),
+                toBlobURL(workerSrc, 'text/javascript'),
+            ]);
+        } catch (blobErr) {
+            throw new Error(
+                'toBlobURL failed -- cannot fetch FFmpeg assets. ' +
+                'Check network and CORP headers on CDN. Details: ' + blobErr.message
+            );
+        }
 
-        console.log('[FFmpeg] Successfully created blob URLs for core, wasm, and worker. Loading ffmpeg engine...');
+        console.log('[FFmpeg] Blob URLs ready:');
+        console.log('[FFmpeg]  coreURL  :', coreURL.slice(0, 50) + '...');
+        console.log('[FFmpeg]  wasmURL  :', wasmURL.slice(0, 50) + '...');
+        console.log('[FFmpeg]  workerURL:', workerURL.slice(0, 50) + '...');
 
-        // Call ffmpeg.load() using those blob URLs for coreURL, wasmURL, and workerURL
-        await ffmpeg.load({
-            coreURL,
-            wasmURL,
-            workerURL
-        });
+        // -- Step 4: Load ffmpeg using ONLY blob URLs -- never raw CDN/file URLs --
+        await ffmpeg.load({ coreURL, wasmURL, workerURL });
 
-        console.log('[FFmpeg] ffmpeg.wasm core loaded successfully! Ready for processing.');
+        console.log('[FFmpeg] Engine loaded successfully! Ready for video processing.');
         _ffmpegInstance = ffmpeg;
 
-        // Expose to window for app-wide and console access
-        window.ffmpeg = ffmpeg;
-        window.FFmpeg = FFmpeg;
+        window.ffmpeg     = ffmpeg;
+        window.FFmpeg     = FFmpeg;
         window.FFmpegUtil = FFmpegUtil;
 
         return ffmpeg;
-    })();
+
+    })().catch(err => {
+        // Reset singleton on failure so the next call can attempt a fresh load.
+        // Without this reset, a failed first load permanently breaks ffmpeg for
+        // the lifetime of the page -- user would need to hard-refresh to retry.
+        _ffmpegLoadingPromise = null;
+        _ffmpegInstance       = null;
+        console.error('[FFmpeg] Load failed, singleton reset for retry:', err.message);
+        throw err;
+    });
 
     return _ffmpegLoadingPromise;
 }
 
-// Expose public API
+// Public API
 window.loadFFmpeg = loadFFmpeg;
-window.getFFmpeg = () => _ffmpegInstance;
+window.getFFmpeg  = () => _ffmpegInstance;
 window.OmniFFmpeg = {
-    load: loadFFmpeg,
+    load:        loadFFmpeg,
     getInstance: () => _ffmpegInstance,
     loadModules: loadFFmpegModules,
 };
+
 
