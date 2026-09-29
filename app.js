@@ -3086,8 +3086,16 @@ async function loadFFmpeg(options = {}) {
             const NativeWorker = window.Worker;
 
             window.Worker = function(scriptURL, options) {
-                console.log('[Main Thread Worker] Creating Worker instance from URL:', scriptURL, 'options:', options);
-                const worker = new NativeWorker(scriptURL, options);
+                // Ensure Worker is created WITHOUT { type: 'module' } (pure classic worker script)
+                let cleanOptions = options;
+                if (cleanOptions && typeof cleanOptions === 'object') {
+                    cleanOptions = { ...cleanOptions };
+                    delete cleanOptions.type;
+                }
+                console.log('[Main Thread Worker] Creating classic Worker instance from URL:', scriptURL, 'options:', cleanOptions);
+                const worker = cleanOptions && Object.keys(cleanOptions).length > 0
+                    ? new NativeWorker(scriptURL, cleanOptions)
+                    : new NativeWorker(scriptURL);
 
                 // 1) onerror handler to capture internal crashes and report actual error message
                 worker.onerror = function(event) {

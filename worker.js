@@ -1,12 +1,12 @@
 console.log('[FFmpeg Worker] worker.js execution started.');
 
-// Self-contained constants & message types for module worker compatibility
-export const MIME_TYPE_JAVASCRIPT = "text/javascript";
-export const MIME_TYPE_WASM = "application/wasm";
-export const CORE_VERSION = "0.12.10";
-export const CORE_URL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd/ffmpeg-core.js`;
+// Self-contained constants & message types for classic worker (no ES module syntax)
+const MIME_TYPE_JAVASCRIPT = "text/javascript";
+const MIME_TYPE_WASM = "application/wasm";
+const CORE_VERSION = "0.12.10";
+const CORE_URL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd/ffmpeg-core.js`;
 
-export const FFMessageType = {
+const FFMessageType = {
     LOAD: "LOAD",
     EXEC: "EXEC",
     FFPROBE: "FFPROBE",
@@ -25,10 +25,10 @@ export const FFMessageType = {
     UNMOUNT: "UNMOUNT"
 };
 
-export const ERROR_UNKNOWN_MESSAGE_TYPE = new Error("unknown message type");
-export const ERROR_NOT_LOADED = new Error("ffmpeg is not loaded, call `await ffmpeg.load()` first");
-export const ERROR_TERMINATED = new Error("called FFmpeg.terminate()");
-export const ERROR_IMPORT_FAILURE = new Error("failed to import ffmpeg-core.js");
+const ERROR_UNKNOWN_MESSAGE_TYPE = new Error("unknown message type");
+const ERROR_NOT_LOADED = new Error("ffmpeg is not loaded, call `await ffmpeg.load()` first");
+const ERROR_TERMINATED = new Error("called FFmpeg.terminate()");
+const ERROR_IMPORT_FAILURE = new Error("failed to import ffmpeg-core.js");
 
 // Catch any unhandled worker errors or promise rejections immediately
 self.addEventListener('error', (event) => {
@@ -61,43 +61,34 @@ const load = async ({ coreURL: _coreURL, wasmURL: _wasmURL, workerURL: _workerUR
     const first = !ffmpeg;
     console.log('[FFmpeg Worker] load() triggered with options:', { coreURL: _coreURL, wasmURL: _wasmURL, workerURL: _workerURL });
 
-    // ── 1. Import Core Script with try/catch and fallback ───────────────────────
+    // ── 1. Import Core Script via importScripts with try/catch ───────────────────
     try {
         if (!_coreURL) _coreURL = CORE_URL;
-        console.log('[FFmpeg Worker] Attempting importScripts(coreURL)...', _coreURL);
-        // importScripts works in classic workers (or when supported)
+        console.log('[FFmpeg Worker] Executing importScripts(coreURL)...', _coreURL);
         importScripts(_coreURL);
-        console.log('[FFmpeg Worker] importScripts(coreURL) succeeded.');
+        console.log('[FFmpeg Worker] importScripts(coreURL) completed successfully.');
     } catch (importScriptsErr) {
-        console.warn('[FFmpeg Worker] importScripts failed (expected in module workers):', importScriptsErr?.message || importScriptsErr);
+        const fullImportMsg = `Failed to load FFmpeg core script via importScripts(${_coreURL}): ${importScriptsErr?.message || importScriptsErr}`;
+        console.error('[FFmpeg Worker] ' + fullImportMsg);
+        self.postMessage({
+            type: FFMessageType.ERROR,
+            data: fullImportMsg
+        });
+        throw new Error(fullImportMsg);
+    }
 
-        try {
-            if (!_coreURL || _coreURL === CORE_URL) {
-                _coreURL = CORE_URL.replace('/umd/', '/esm/');
-            }
-            console.log('[FFmpeg Worker] Attempting dynamic import(coreURL)...', _coreURL);
-            const coreModule = await import(/* @vite-ignore */ _coreURL);
-            self.createFFmpegCore = coreModule.default || coreModule.createFFmpegCore || self.createFFmpegCore;
-
-            if (!self.createFFmpegCore) {
-                const failureMsg = `createFFmpegCore not found after importing core script from ${_coreURL}. importScripts error: ${importScriptsErr?.message || importScriptsErr}`;
-                console.error('[FFmpeg Worker] ' + failureMsg);
-                self.postMessage({
-                    type: FFMessageType.ERROR,
-                    data: failureMsg
-                });
-                throw new Error(failureMsg);
-            }
-            console.log('[FFmpeg Worker] Dynamic import succeeded, createFFmpegCore available.');
-        } catch (importErr) {
-            const fullImportMsg = `Failed to load core script via both importScripts and dynamic import. importScripts error: ${importScriptsErr?.message || importScriptsErr}; dynamic import error: ${importErr?.message || importErr}`;
-            console.error('[FFmpeg Worker] ' + fullImportMsg);
-            self.postMessage({
-                type: FFMessageType.ERROR,
-                data: fullImportMsg
-            });
-            throw new Error(fullImportMsg);
-        }
+    // Verify self.createFFmpegCore is available
+    if (typeof self.createFFmpegCore !== 'function' && typeof createFFmpegCore === 'function') {
+        self.createFFmpegCore = createFFmpegCore;
+    }
+    if (typeof self.createFFmpegCore !== 'function') {
+        const missingCoreMsg = `createFFmpegCore is not defined after importScripts(${_coreURL}). Please ensure ffmpeg-core.js is the UMD build.`;
+        console.error('[FFmpeg Worker] ' + missingCoreMsg);
+        self.postMessage({
+            type: FFMessageType.ERROR,
+            data: missingCoreMsg
+        });
+        throw new Error(missingCoreMsg);
     }
 
     const coreURL = _coreURL;
