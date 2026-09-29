@@ -125,6 +125,10 @@
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                                     Thumbnail Extractor
                                 </a>
+                                <a href="#keyword-extractor-tool" class="dash-nav-item tool-quick-link" data-tool="keyword-extractor">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>
+                                    Tag Extractor
+                                </a>
                                 <a href="#audio-generator-tool" class="dash-nav-item tool-quick-link" data-tool="audio-generator">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                                     AI Voice Synthesizer
@@ -297,6 +301,25 @@
                             <span class="meta-tag">SEO Keywords</span>
                         </div>
                         <button class="btn btn-outline launch-tool-btn" data-tool="yt-metadata">Open Tool →</button>
+                    </div>
+
+                    <!-- Tool 2C: Keyword & Tag Extractor -->
+                    <div class="tool-card" data-category="video" data-latest="true" data-name="keyword tag extractor youtube video channel tags seo keywords handle">
+                        <div class="tool-card-badges">
+                            <span class="tool-card-badge badge-new-star">⭐ NEW ✨</span>
+                            <span class="tool-card-badge badge-red">Channel SEO</span>
+                        </div>
+                        <div class="tool-icon-wrapper tool-icon-red">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>
+                        </div>
+                        <h3 class="tool-title">Keyword & Tag Extractor</h3>
+                        <p class="tool-description">Extract hidden video tags or YouTube channel SEO keywords from any video URL or @handle with 1-click copying.</p>
+                        <div class="tool-meta">
+                            <span class="meta-tag meta-tag-new">⭐ New Tool</span>
+                            <span class="meta-tag">Video & Channel</span>
+                            <span class="meta-tag">Channel SEO</span>
+                        </div>
+                        <button class="btn btn-outline launch-tool-btn" data-tool="keyword-extractor">Open Tool →</button>
                     </div>
 
 
@@ -712,6 +735,77 @@
                                 <button class="btn btn-outline btn-sm" id="copyDescBtn">Copy Description 📋</button>
                             </div>
                             <pre class="meta-desc-box" id="metaDescDisplay"></pre>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TOOL WORKSPACE 2C: Keyword & Tag Extractor -->
+                <div class="tool-workspace hidden" id="workspace-keyword-extractor">
+                    <div class="input-hero-group">
+                        <label for="keywordExtractorInput">Enter YouTube Video URL or Channel Handle / Link:</label>
+                        <div class="input-with-button">
+                            <div class="input-clear-wrapper">
+                                <input type="text" id="keywordExtractorInput" placeholder="e.g. https://youtube.com/watch?v=... or @MrBeast or youtube.com/@channel" value="">
+                                <button type="button" class="input-clear-btn hidden" id="clearKeywordExtractorInput" title="Clear link (1-click)">✕</button>
+                            </div>
+                            <button class="btn btn-primary" id="extractKeywordsBtn">Extract Keywords & Tags 🏷️</button>
+                        </div>
+                        <p class="input-hint" style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">
+                            Supports YouTube videos (watch, Shorts, youtu.be) and channel handles (@handle, channel URL, or ID).
+                        </p>
+                    </div>
+
+                    <!-- Red Error Alert Box -->
+                    <div class="keyword-error-alert hidden" id="keywordErrorAlert">
+                        <div class="error-alert-icon">⚠️</div>
+                        <div class="error-alert-content">
+                            <h4 class="error-alert-title" id="keywordErrorTitle">Extraction Failed</h4>
+                            <p class="error-alert-message" id="keywordErrorMessage">An error occurred while extracting tags.</p>
+                        </div>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div class="tool-loader hidden" id="keywordLoader">
+                        <div class="spinner"></div>
+                        <p id="keywordLoaderText">Detecting link & extracting keywords with YouTube Data API...</p>
+                    </div>
+
+                    <!-- Result Container (Blank by default until extracted) -->
+                    <div class="meta-results-container hidden" id="keywordResultsArea">
+                        
+                        <!-- Video or Channel Info Card -->
+                        <div class="keyword-entity-card" id="keywordEntityCard">
+                            <div class="keyword-entity-media">
+                                <img id="keywordEntityImage" src="" alt="Thumbnail or Avatar" class="keyword-entity-thumb">
+                                <span class="keyword-entity-badge" id="keywordEntityBadge">YouTube Video</span>
+                            </div>
+                            <div class="keyword-entity-info">
+                                <h3 class="keyword-entity-title" id="keywordEntityTitle">Title</h3>
+                                <div class="keyword-entity-sub" id="keywordEntitySub">Channel Name</div>
+                            </div>
+                        </div>
+
+                        <!-- Extracted SEO Tags & Keywords Cloud Box -->
+                        <div class="meta-card-box mt-3">
+                            <div class="meta-card-header">
+                                <h3>🏷️ Extracted SEO Keywords & Tags (<span id="keywordCountNum">0</span>)</h3>
+                                <button class="btn btn-primary btn-sm" id="copyAllKeywordsBtn">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copy All (CSV)
+                                </button>
+                            </div>
+
+                            <!-- Friendly Empty State -->
+                            <div class="keyword-empty-state hidden" id="keywordEmptyState">
+                                <div class="empty-icon">🏷️</div>
+                                <p id="keywordEmptyMessage">This video/channel hasn't set any tags.</p>
+                            </div>
+
+                            <!-- Pill Tags Cloud with Framer Motion entrance animation -->
+                            <div class="keyword-tags-cloud" id="keywordTagsCloud">
+                                <!-- Tags pills inserted via JS -->
+                            </div>
                         </div>
 
                     </div>

@@ -24,6 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
             iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
             iconBg: 'tool-icon-red'
         },
+        'keyword-extractor': {
+            title: 'Keyword & Tag Extractor',
+            tag: 'Channel SEO',
+            iconHtml: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>`,
+            iconBg: 'tool-icon-red'
+        },
         'audio-generator': {
             title: 'AI Voice Synthesizer',
             tag: 'Audio & AI',
@@ -108,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Hide all result boxes, loaders, progress bars, and clear buttons
-        document.querySelectorAll('.result-box, .tool-loader, .download-progress-wrap, .input-clear-btn').forEach(el => {
+        document.querySelectorAll('.result-box, .tool-loader, .download-progress-wrap, .input-clear-btn, .keyword-error-alert, .keyword-empty-state').forEach(el => {
             el.classList.add('hidden');
         });
 
@@ -121,14 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
         [
             'ytVideoTitle', 'ytChannelInfo', 'ytProgressPercent', 'ytProgressStatus',
             'igVideoTitle', 'igAuthorInfo', 'igHashtags', 'igUploadDate', 'igLikesCount', 'igCommentsCount', 'igProgressPercent', 'igProgressStatus',
-            'metaTitleDisplay', 'metaDescDisplay', 'tagCountNum'
+            'metaTitleDisplay', 'metaDescDisplay', 'tagCountNum',
+            'keywordEntityTitle', 'keywordEntitySub', 'keywordCountNum'
         ].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.textContent = '';
         });
 
         // Clear innerHTML containers
-        ['metaTagsCloud'].forEach(id => {
+        ['metaTagsCloud', 'keywordTagsCloud'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerHTML = '';
         });
@@ -203,6 +210,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const metaInput = document.getElementById('ytMetaUrl');
             if (metaInput && metaInput.value.trim().length > 0) {
                 processYouTubeMetadata();
+            }
+        } else if (toolKey === 'keyword-extractor') {
+            const kwInput = document.getElementById('keywordExtractorInput');
+            if (kwInput && kwInput.value.trim().length > 0) {
+                processKeywordExtraction();
             }
         }
     }
@@ -439,6 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupInputClear('igDownloaderUrl', 'clearIgDownloaderUrl');
     setupInputClear('ytThumbUrl', 'clearYtThumbUrl');
     setupInputClear('ytMetaUrl', 'clearYtMetaUrl');
+    setupInputClear('keywordExtractorInput', 'clearKeywordExtractorInput');
     setupInputClear('ttsTextInput', 'clearTtsTextBtn');
 
 
@@ -1297,6 +1310,182 @@ async function analyzeYouTubeLink() {
             const tagsList = Array.from(tagElements).map(el => el.textContent.replace('#', '')).join(', ');
             navigator.clipboard.writeText(tagsList);
             showToast('All SEO Tags copied to clipboard (comma separated)! 🏷️');
+        });
+    }
+
+
+    // ------------------------------------------------------------------
+    // TOOL 2C: Keyword & Tag Extractor Engine (Video & Channel SEO)
+    // ------------------------------------------------------------------
+    const keywordExtractorInput = document.getElementById('keywordExtractorInput');
+    const extractKeywordsBtn = document.getElementById('extractKeywordsBtn');
+    const keywordLoader = document.getElementById('keywordLoader');
+    const keywordResultsArea = document.getElementById('keywordResultsArea');
+    const keywordErrorAlert = document.getElementById('keywordErrorAlert');
+    const keywordErrorTitle = document.getElementById('keywordErrorTitle');
+    const keywordErrorMessage = document.getElementById('keywordErrorMessage');
+    const keywordEntityCard = document.getElementById('keywordEntityCard');
+    const keywordEntityImage = document.getElementById('keywordEntityImage');
+    const keywordEntityBadge = document.getElementById('keywordEntityBadge');
+    const keywordEntityTitle = document.getElementById('keywordEntityTitle');
+    const keywordEntitySub = document.getElementById('keywordEntitySub');
+    const keywordCountNum = document.getElementById('keywordCountNum');
+    const keywordTagsCloud = document.getElementById('keywordTagsCloud');
+    const keywordEmptyState = document.getElementById('keywordEmptyState');
+    const keywordEmptyMessage = document.getElementById('keywordEmptyMessage');
+    const copyAllKeywordsBtn = document.getElementById('copyAllKeywordsBtn');
+
+    let currentExtractedKeywords = [];
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function showKeywordError(title, message) {
+        if (keywordErrorAlert) {
+            if (keywordErrorTitle) keywordErrorTitle.textContent = title || 'Extraction Failed';
+            if (keywordErrorMessage) keywordErrorMessage.textContent = message || 'An error occurred while fetching tags.';
+            keywordErrorAlert.classList.remove('hidden');
+        }
+        showToast(message || title, 'warning');
+    }
+
+    function hideKeywordError() {
+        if (keywordErrorAlert) {
+            keywordErrorAlert.classList.add('hidden');
+        }
+    }
+
+    if (extractKeywordsBtn) {
+        extractKeywordsBtn.addEventListener('click', processKeywordExtraction);
+    }
+
+    if (keywordExtractorInput) {
+        keywordExtractorInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                processKeywordExtraction();
+            }
+        });
+    }
+
+    async function processKeywordExtraction() {
+        const input = (keywordExtractorInput ? keywordExtractorInput.value : '').trim();
+        if (!input) {
+            showToast('Please paste a YouTube video link or channel handle! 🏷️', 'warning');
+            if (keywordExtractorInput) keywordExtractorInput.focus();
+            return;
+        }
+
+        hideKeywordError();
+        if (keywordResultsArea) keywordResultsArea.classList.add('hidden');
+        if (keywordEmptyState) keywordEmptyState.classList.add('hidden');
+        if (keywordLoader) keywordLoader.classList.remove('hidden');
+
+        try {
+            const endpoint = getBackendUrl(`/api/keywords?url=${encodeURIComponent(input)}`);
+            const response = await fetch(endpoint);
+            const data = await response.json();
+
+            if (keywordLoader) keywordLoader.classList.add('hidden');
+
+            if (!response.ok || data.error) {
+                const errMsg = data.error || `Error fetching tags (Status ${response.status})`;
+                showKeywordError('Extraction Failed', errMsg);
+                return;
+            }
+
+            // Populate Entity Header Card
+            if (data.type === 'channel') {
+                if (keywordEntityBadge) {
+                    keywordEntityBadge.textContent = 'YouTube Channel';
+                    keywordEntityBadge.style.background = 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)';
+                }
+                if (keywordEntityTitle) keywordEntityTitle.textContent = data.channelName || 'YouTube Channel';
+                if (keywordEntitySub) {
+                    keywordEntitySub.innerHTML = `<span>👤 Channel</span> ${data.formattedSubscribers ? `<span>• 👥 ${data.formattedSubscribers}</span>` : ''}`;
+                }
+                if (keywordEntityImage) {
+                    keywordEntityImage.src = data.avatar || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80';
+                    keywordEntityImage.classList.add('is-avatar');
+                }
+            } else {
+                if (keywordEntityBadge) {
+                    keywordEntityBadge.textContent = 'YouTube Video';
+                    keywordEntityBadge.style.background = 'var(--primary-gradient)';
+                }
+                if (keywordEntityTitle) keywordEntityTitle.textContent = data.title || 'YouTube Video';
+                if (keywordEntitySub) {
+                    keywordEntitySub.innerHTML = `<span>📺 ${data.channelName || 'YouTube Creator'}</span>`;
+                }
+                if (keywordEntityImage) {
+                    keywordEntityImage.src = data.thumbnail || '';
+                    keywordEntityImage.classList.remove('is-avatar');
+                }
+            }
+
+            currentExtractedKeywords = Array.isArray(data.tags) ? data.tags : [];
+            if (keywordCountNum) keywordCountNum.textContent = currentExtractedKeywords.length;
+
+            if (currentExtractedKeywords.length === 0) {
+                if (keywordTagsCloud) keywordTagsCloud.innerHTML = '';
+                if (keywordEmptyMessage) {
+                    keywordEmptyMessage.textContent = `This ${data.type === 'channel' ? 'channel' : 'video'} hasn't set any tags.`;
+                }
+                if (keywordEmptyState) keywordEmptyState.classList.remove('hidden');
+            } else {
+                if (keywordEmptyState) keywordEmptyState.classList.add('hidden');
+                if (keywordTagsCloud) {
+                    keywordTagsCloud.innerHTML = currentExtractedKeywords.map((tag, idx) => `
+                        <span class="tag-pill-interactive" style="--tag-index: ${idx}" data-tag="${escapeHtml(tag)}">
+                            <span class="pill-tag-text">#${escapeHtml(tag)}</span>
+                            <span class="pill-copy-btn" title="Copy tag">Copy 📋</span>
+                        </span>
+                    `).join('');
+
+                    // Attach 1-click copy handler to each tag pill
+                    keywordTagsCloud.querySelectorAll('.tag-pill-interactive').forEach(pill => {
+                        pill.addEventListener('click', () => {
+                            const tagText = pill.getAttribute('data-tag');
+                            if (tagText) {
+                                navigator.clipboard.writeText(tagText);
+                                const copyBtn = pill.querySelector('.pill-copy-btn');
+                                if (copyBtn) copyBtn.textContent = 'Copied! ✓';
+                                setTimeout(() => {
+                                    if (copyBtn) copyBtn.textContent = 'Copy 📋';
+                                }, 1500);
+                                showToast(`Copied tag: "${tagText}" 📋`);
+                            }
+                        });
+                    });
+                }
+            }
+
+            if (keywordResultsArea) keywordResultsArea.classList.remove('hidden');
+            showToast(`Extracted ${currentExtractedKeywords.length} ${data.type === 'channel' ? 'keywords' : 'tags'}! 🏷️`);
+
+        } catch (err) {
+            if (keywordLoader) keywordLoader.classList.add('hidden');
+            showKeywordError('Connection Error', 'Failed to reach backend server. Please verify the server is running.');
+            console.error('Keyword extraction error:', err);
+        }
+    }
+
+    if (copyAllKeywordsBtn) {
+        copyAllKeywordsBtn.addEventListener('click', () => {
+            if (!currentExtractedKeywords || currentExtractedKeywords.length === 0) {
+                showToast('No tags to copy!', 'warning');
+                return;
+            }
+            const csv = currentExtractedKeywords.join(', ');
+            navigator.clipboard.writeText(csv);
+            showToast(`Copied all ${currentExtractedKeywords.length} tags as CSV! 📋`);
         });
     }
 

@@ -319,6 +319,205 @@ Deno.serve(async (req: Request) => {
     }
 
     // ------------------------------------------------------------------
+    // ROUTE: /keywords - Keyword & Tag Extractor (Video or Channel)
+    // ------------------------------------------------------------------
+    if (pathname === "/keywords" || pathname.endsWith("/keywords")) {
+      const rawInput = url.searchParams.get("url") || url.searchParams.get("input");
+      if (!rawInput || !rawInput.trim()) {
+        return new Response(
+          JSON.stringify({ error: "Please enter a valid YouTube video link, Shorts URL, or channel handle / URL." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const trimmed = rawInput.trim();
+      const apiKey = typeof Deno !== "undefined" ? Deno.env?.get?.("YOUTUBE_API_KEY") : "";
+
+      // Video check
+      const videoMatch = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+      const isVideoId = videoMatch ? videoMatch[1] : (/^[\w-]{11}$/.test(trimmed) && !trimmed.startsWith("@") ? trimmed : null);
+
+      if (isVideoId) {
+        if (apiKey) {
+          try {
+            const vRes = await fetch(
+              `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${encodeURIComponent(isVideoId)}&key=${apiKey}`
+            );
+            if (vRes.ok) {
+              const data = await vRes.json();
+              if (data.items && data.items.length > 0) {
+                const item = data.items[0];
+                const snippet = item.snippet || {};
+                const thumbnail = snippet.thumbnails?.maxres?.url
+                  || snippet.thumbnails?.high?.url
+                  || snippet.thumbnails?.medium?.url
+                  || snippet.thumbnails?.default?.url
+                  || `https://i.ytimg.com/vi/${isVideoId}/hqdefault.jpg`;
+                const tags = Array.isArray(snippet.tags) ? snippet.tags : [];
+                return new Response(
+                  JSON.stringify({
+                    type: "video",
+                    title: snippet.title || `YouTube Video (${isVideoId})`,
+                    channelName: snippet.channelTitle || "YouTube Creator",
+                    thumbnail,
+                    videoId: isVideoId,
+                    tags,
+                    count: tags.length,
+                  }),
+                  { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+              }
+              return new Response(
+                JSON.stringify({ error: "Video not found. Please check the video URL or ID and ensure it is public." }),
+                { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+            if (vRes.status === 403) {
+              return new Response(
+                JSON.stringify({ error: "YouTube Data API quota exceeded. Please try again later or check your API quota limits." }),
+                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+          } catch (_) {
+            return new Response(
+              JSON.stringify({ error: "Failed to connect to YouTube servers. Please try again." }),
+              { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+
+        // Fallback using details extractor
+        const { title, author, thumbnail } = await fetchYouTubeDetails(isVideoId);
+        const titleWords = title.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9]/g, "")).filter((w) => w.length > 2);
+        const tags = Array.from(new Set([
+          title.toLowerCase(),
+          author.toLowerCase(),
+          ...titleWords.map((w) => w.toLowerCase()),
+          "youtube video", "viral", "official video", "hd 1080p", "trending", "2026"
+        ]));
+        return new Response(
+          JSON.stringify({
+            type: "video",
+            title,
+            channelName: author,
+            thumbnail,
+            videoId: isVideoId,
+            tags,
+            count: tags.length,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Channel check
+      let channelId = "";
+      let handle = "";
+      const channelIdMatch = trimmed.match(/(?:youtube\.com\/channel\/|^)(UC[\w-]{21,23})/i);
+      const handleMatch = trimmed.match(/(?:youtube\.com\/)?@([\w.-]+)/i);
+
+      if (channelIdMatch) {
+        channelId = channelIdMatch[1];
+      } else if (handleMatch) {
+        handle = `@${handleMatch[1]}`;
+      } else if (trimmed.startsWith("@")) {
+        handle = trimmed;
+      } else if (/^[\w.-]{3,30}$/.test(trimmed)) {
+        handle = `@${trimmed}`;
+      }
+
+      if (channelId || handle) {
+        if (apiKey) {
+          try {
+            let chUrl = channelId
+              ? `https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings,statistics&id=${encodeURIComponent(channelId)}&key=${apiKey}`
+              : `https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings,statistics&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`;
+
+            let cRes = await fetch(chUrl);
+            let cData = cRes.ok ? await cRes.json() : null;
+
+            if (cRes.ok && (!cData?.items || cData.items.length === 0) && handle) {
+              const noAt = handle.replace(/^@/, "");
+              const retryRes = await fetch(
+                `https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings,statistics&forHandle=${encodeURIComponent(noAt)}&key=${apiKey}`
+              );
+              if (retryRes.ok) {
+                const rData = await retryRes.json();
+                if (rData?.items?.length) {
+                  cRes = retryRes;
+                  cData = rData;
+                }
+              }
+            }
+
+            if (!cRes.ok) {
+              if (cRes.status === 403) {
+                return new Response(
+                  JSON.stringify({ error: "YouTube Data API quota exceeded. Please try again later or check your API quota limits." }),
+                  { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+              }
+              return new Response(
+                JSON.stringify({ error: `YouTube API returned error (HTTP ${cRes.status}).` }),
+                { status: cRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+
+            if (!cData?.items || cData.items.length === 0) {
+              return new Response(
+                JSON.stringify({ error: "Channel not found. Please verify the channel handle or URL." }),
+                { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+
+            const item = cData.items[0];
+            const snippet = item.snippet || {};
+            const statistics = item.statistics || {};
+            const brandingSettings = item.brandingSettings || {};
+            const avatar = snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || "";
+
+            const rawKeywords = brandingSettings.channel?.keywords || "";
+            const regex = /"([^"]+)"|(\S+)/g;
+            const parsedKeywords: string[] = [];
+            let m;
+            while ((m = regex.exec(rawKeywords.trim())) !== null) {
+              const kw = (m[1] || m[2] || "").trim();
+              if (kw && !parsedKeywords.includes(kw)) parsedKeywords.push(kw);
+            }
+
+            const subNum = parseInt(statistics.subscriberCount || "0", 10);
+            let formattedSubscribers = statistics.subscriberCount ? `${subNum} Subscribers` : null;
+            if (subNum >= 1000000000) formattedSubscribers = `${(subNum / 1000000000).toFixed(1).replace(/\.0$/, "")}B Subscribers`;
+            else if (subNum >= 1000000) formattedSubscribers = `${(subNum / 1000000).toFixed(1).replace(/\.0$/, "")}M Subscribers`;
+            else if (subNum >= 1000) formattedSubscribers = `${(subNum / 1000).toFixed(1).replace(/\.0$/, "")}K Subscribers`;
+
+            return new Response(
+              JSON.stringify({
+                type: "channel",
+                channelName: snippet.title || "YouTube Channel",
+                avatar,
+                subscriberCount: statistics.subscriberCount || null,
+                formattedSubscribers,
+                tags: parsedKeywords,
+                count: parsedKeywords.length,
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          } catch (_) {
+            return new Response(
+              JSON.stringify({ error: "Failed to connect to YouTube servers. Please try again." }),
+              { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ error: "Invalid YouTube link. Please enter a valid YouTube video URL, Shorts link, or channel handle (@name / channel URL)." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ------------------------------------------------------------------
     // ROUTE: /channel-info - YouTube Channel Details & Keywords
     // ------------------------------------------------------------------
     if (pathname === "/channel-info" || pathname.endsWith("/channel-info")) {
